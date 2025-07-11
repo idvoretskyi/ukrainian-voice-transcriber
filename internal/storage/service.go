@@ -1,4 +1,8 @@
 // Ukrainian Voice Transcriber
+//
+// Copyright (c) 2025 Ihor Dvoretskyi
+//
+// Licensed under MIT License
 
 // Package storage provides Google Cloud Storage functionality.
 package storage

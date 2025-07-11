@@ -7,19 +7,7 @@ queries:
   - name: security-and-quality
     uses: security-and-quality
 
-# Path filters
-paths:
-  - "cmd/**"
-  - "internal/**"
-  - "pkg/**"
-
-# Ignore paths
-paths-ignore:
-  - "**/*_test.go"
-  - "**/testdata/**"
-  - "vendor/**"
-  - "docs/**"
-  - "*.md"
+# Path filtering is handled by advanced-security/filter-sarif Action in the workflow
 
 # Disable specific queries if needed
 # disable-default-queries: false

@@ -1,4 +1,8 @@
 // Ukrainian Voice Transcriber
+//
+// Copyright (c) 2025 Ihor Dvoretskyi
+//
+// Licensed under MIT License
 
 // Package main provides the application entry point.
 package main
@@ -9,7 +13,7 @@ import (
 	"github.com/idvoretskyi/ukrainian-voice-transcriber/internal/cli"
 )
 
-// Version information - set by build flags
+// Version information - set by build flags.
 var (
 	version   = "dev"
 	buildDate = "unknown"

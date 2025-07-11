@@ -1,4 +1,8 @@
 // Ukrainian Voice Transcriber
+//
+// Copyright (c) 2025 Ihor Dvoretskyi
+//
+// Licensed under MIT License
 
 // Package cli provides command-line interface functionality.
 package cli
@@ -15,12 +19,12 @@ import (
 
 var outputFile string
 
-// transcribeCmd represents the transcribe command
+// transcribeCmd represents the transcribe command.
 var transcribeCmd = &cobra.Command{
 	Use:   "transcribe [video-file]",
 	Short: "Transcribe a video file to text",
 	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, args []string) error {
 		videoFile := args[0]
 
 		// Initialize transcriber
@@ -48,7 +52,7 @@ var transcribeCmd = &cobra.Command{
 
 		// Create directory based on video filename and save transcript
 		if outputFile != "" {
-			if err := os.WriteFile(outputFile, []byte(result.Text), 0644); err != nil {
+			if err := os.WriteFile(outputFile, []byte(result.Text), 0600); err != nil {
 				return fmt.Errorf("failed to save transcript: %v", err)
 			}
 			if !globalConfig.Quiet {
@@ -63,13 +67,13 @@ var transcribeCmd = &cobra.Command{
 			dirName := strings.ReplaceAll(videoNameWithoutExt, " ", "_")
 
 			// Create directory
-			if err := os.MkdirAll(dirName, 0755); err != nil {
+			if err := os.MkdirAll(dirName, 0o755); err != nil {
 				return fmt.Errorf("failed to create directory %s: %v", dirName, err)
 			}
 
 			// Save transcript to file in the new directory with original filename (spaces replaced with underscores)
 			transcriptPath := filepath.Join(dirName, dirName+".txt")
-			if err := os.WriteFile(transcriptPath, []byte(result.Text), 0644); err != nil {
+			if err := os.WriteFile(transcriptPath, []byte(result.Text), 0600); err != nil {
 				return fmt.Errorf("failed to save transcript: %v", err)
 			}
 

@@ -1,4 +1,8 @@
 // Ukrainian Voice Transcriber
+//
+// Copyright (c) 2025 Ihor Dvoretskyi
+//
+// Licensed under MIT License
 
 // Package transcriber provides video transcription functionality.
 package transcriber

@@ -106,10 +106,11 @@ jobs:
         go-version: ${{ env.GO_VERSION }}
     
     - name: Install Gosec
-      run: go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+      run: |
+        curl -sfL https://raw.githubusercontent.com/securecodewarrior/gosec/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.21.4
 
     - name: Run Gosec Security Scanner
-      run: ~/go/bin/gosec ./...
+      run: $(go env GOPATH)/bin/gosec ./...
 
   dependency-check:
     runs-on: ubuntu-latest
