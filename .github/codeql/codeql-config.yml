@@ -1,0 +1,29 @@
+name: "Ukrainian Voice Transcriber CodeQL Config"
+
+# Additional queries to run
+queries:
+  - name: security-extended
+    uses: security-extended
+  - name: security-and-quality
+    uses: security-and-quality
+
+# Path filters
+paths:
+  - "cmd/**"
+  - "internal/**"
+  - "pkg/**"
+
+# Ignore paths
+paths-ignore:
+  - "**/*_test.go"
+  - "**/testdata/**"
+  - "vendor/**"
+  - "docs/**"
+  - "*.md"
+
+# Disable specific queries if needed
+# disable-default-queries: false
+
+# Custom query packs
+# packs:
+#   - codeql/go-queries

@@ -1,0 +1,97 @@
+# Binaries
+ukrainian-voice-transcriber
+ukrainian-voice-transcriber-*
+*.exe
+
+# Go build artifacts
+*.out
+*.test
+vendor/
+coverage.out
+coverage.html
+
+# Build directories
+dist/
+build/
+release/
+
+# Authentication & Credentials
+service-account.json
+service_account.json
+gcloud-key.json
+key.json
+credentials.json
+client_secret.json
+token.pickle
+.transcriber-token.json
+
+# Private keys & certificates
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Video/Audio files
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+*.wmv
+*.wav
+*.mp3
+*.m4a
+*.flv
+
+# Transcription outputs
+transcript*.txt
+output*.txt
+result*.txt
+*_transcript.txt
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Logs
+*.log
+logs/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# Environment files
+.env
+.env.local
+
+# Test files
+example.mp4
+test_video.*
+
+# Claude AI files
+.claude/
+.claude-*
+claude-*
+.anthropic/

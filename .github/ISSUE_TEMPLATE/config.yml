@@ -1,0 +1,17 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Documentation
+    url: https://github.com/idvoretskyi/ukrainian-voice-transcriber/blob/main/README.md
+    about: Check the documentation for usage instructions
+  - name: 📚 User Manual (English)
+    url: https://github.com/idvoretskyi/ukrainian-voice-transcriber/blob/main/docs/USER_MANUAL_EN.md
+    about: Complete user manual with examples and troubleshooting
+  - name: 📚 User Manual (Ukrainian)
+    url: https://github.com/idvoretskyi/ukrainian-voice-transcriber/blob/main/docs/USER_MANUAL_UK.md
+    about: Повний посібник користувача з прикладами та вирішенням проблем
+  - name: 💬 GitHub Discussions
+    url: https://github.com/idvoretskyi/ukrainian-voice-transcriber/discussions
+    about: Ask questions and discuss with the community
+  - name: 🔒 Security Issues
+    url: https://github.com/idvoretskyi/ukrainian-voice-transcriber/security/advisories/new
+    about: Report security vulnerabilities privately

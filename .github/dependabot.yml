@@ -1,0 +1,67 @@
+# Dependabot configuration for Ukrainian Voice Transcriber
+# Automatically keeps dependencies up to date
+# https://docs.github.com/en/code-security/dependabot
+
+version: 2
+updates:
+  # Go modules
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "idvoretskyi"
+    assignees:
+      - "idvoretskyi"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "golang"
+    ignore:
+      # Ignore patch updates for stable dependencies
+      - dependency-name: "*"
+        update-types: ["version-update:semver-patch"]
+        
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "idvoretskyi"
+    assignees:
+      - "idvoretskyi"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "ci/cd"
+      - "github-actions"
+
+  # Docker
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "idvoretskyi"
+    assignees:
+      - "idvoretskyi"
+    commit-message:
+      prefix: "docker"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "component/docker"

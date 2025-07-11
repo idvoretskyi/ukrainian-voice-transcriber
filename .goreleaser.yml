@@ -1,0 +1,208 @@
+project_name: ukrainian-voice-transcriber
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+env:
+  - GO_VERSION=1.24
+
+builds:
+  - id: ukrainian-voice-transcriber
+    main: ./cmd/transcriber
+    binary: ukrainian-voice-transcriber
+    
+    env:
+      - CGO_ENABLED=0
+    
+    ldflags:
+      - -s -w
+      - -X 'main.version={{.Version}}'
+      - -X 'main.buildDate={{.Date}}'
+      - -X 'main.gitCommit={{.Commit}}'
+    
+    goos:
+      - linux
+      - darwin
+      - windows
+    
+    goarch:
+      - amd64
+      - arm64
+    
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - id: default
+    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+      - docs/*
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - '^build:'
+      - '^style:'
+      - '^refactor:'
+      - '^chore:'
+      - 'merge conflict'
+      - Merge pull request
+      - Merge branch
+      - go mod tidy
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: 'Bug fixes'
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: 'Performance improvements'
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: Others
+      order: 999
+
+release:
+  github:
+    owner: idvoretskyi
+    name: ukrainian-voice-transcriber
+  
+  draft: false
+  prerelease: auto
+  mode: replace
+  
+  name_template: "Ukrainian Voice Transcriber {{.Version}}"
+  
+  header: |
+    ## Ukrainian Voice Transcriber {{.Version}}
+    
+    ### Installation
+    
+    **Quick Install:**
+    ```bash
+    # Linux/macOS
+    curl -L -o ukrainian-voice-transcriber https://github.com/idvoretskyi/ukrainian-voice-transcriber/releases/download/{{.Version}}/ukrainian-voice-transcriber_{{.Version}}_linux_amd64.tar.gz
+    tar -xzf ukrainian-voice-transcriber_{{.Version}}_linux_amd64.tar.gz
+    chmod +x ukrainian-voice-transcriber
+    ```
+    
+    **Available Platforms:**
+    - Linux (x64, ARM64)
+    - macOS (Intel, Apple Silicon)
+    - Windows (x64)
+    
+    ### Setup
+    
+    1. Install FFmpeg: `brew install ffmpeg` (macOS) or `apt install ffmpeg` (Ubuntu)
+    2. Set up authentication: `gcloud auth application-default login`
+    3. Run setup: `./ukrainian-voice-transcriber setup`
+    
+    ### Usage
+    
+    ```bash
+    # Basic transcription
+    ./ukrainian-voice-transcriber transcribe video.mp4
+    
+    # Check authentication
+    ./ukrainian-voice-transcriber auth --status
+    ```
+  
+  footer: |
+    **🇺🇦 Made with ❤️ for Ukrainian content creators**
+    
+    ---
+    
+    **Full Changelog**: https://github.com/idvoretskyi/ukrainian-voice-transcriber/compare/{{.PreviousTag}}...{{.Tag}}
+
+dockers:
+  - image_templates:
+      - 'ghcr.io/idvoretskyi/ukrainian-voice-transcriber:{{ .Version }}'
+      - 'ghcr.io/idvoretskyi/ukrainian-voice-transcriber:latest'
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--build-arg=VERSION={{.Version}}"
+      - "--build-arg=BUILD_DATE={{.Date}}"
+      - "--build-arg=GIT_COMMIT={{.Commit}}"
+      - "--platform=linux/amd64"
+
+brews:
+  - name: ukrainian-voice-transcriber
+    repository:
+      owner: idvoretskyi
+      name: homebrew-tap
+    directory: Formula
+    homepage: "https://github.com/idvoretskyi/ukrainian-voice-transcriber"
+    description: "Ukrainian video-to-text transcription using Google Cloud Speech-to-Text API"
+    license: "MIT"
+    
+    dependencies:
+      - name: ffmpeg
+    
+    install: |
+      bin.install "ukrainian-voice-transcriber"
+    
+    test: |
+      system "#{bin}/ukrainian-voice-transcriber", "version"
+
+nfpms:
+  - id: packages
+    package_name: ukrainian-voice-transcriber
+    
+    vendor: Ihor Dvoretskyi
+    homepage: https://github.com/idvoretskyi/ukrainian-voice-transcriber
+    maintainer: Ihor Dvoretskyi <ihor.dvoretskyi@gmail.com>
+    description: Ukrainian video-to-text transcription using Google Cloud Speech-to-Text API
+    license: MIT
+    
+    dependencies:
+      - ffmpeg
+    
+    formats:
+      - deb
+      - rpm
+      - apk
+    
+    bindir: /usr/bin
+    
+    contents:
+      - src: README.md
+        dst: /usr/share/doc/ukrainian-voice-transcriber/README.md
+      - src: LICENSE
+        dst: /usr/share/doc/ukrainian-voice-transcriber/LICENSE
+      - src: docs/
+        dst: /usr/share/doc/ukrainian-voice-transcriber/docs/
+
+publishers:
+  - name: fury.io
+    ids:
+      - packages
+    dir: "{{ dir .ArtifactPath }}"
+    cmd: curl -F package=@{{ .ArtifactName }} https://{{ .Env.FURY_TOKEN }}@push.fury.io/idvoretskyi/
+
+milestones:
+  - repo:
+      owner: idvoretskyi
+      name: ukrainian-voice-transcriber
+    close: true
+    fail_on_error: false
+    name_template: "{{ .ProjectName }} {{ .Version }}"
