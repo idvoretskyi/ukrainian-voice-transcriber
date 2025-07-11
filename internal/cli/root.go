@@ -3,8 +3,8 @@ package cli
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
 	"github.com/idvoretskyi/ukrainian-voice-transcriber/pkg/config"
+	"github.com/spf13/cobra"
 )
 
 const (
@@ -53,7 +53,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&globalConfig.Verbose, "verbose", "v", false, "Enable verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&globalConfig.Quiet, "quiet", "q", false, "Suppress all output except results")
 	rootCmd.PersistentFlags().StringVar(&globalConfig.BucketName, "bucket", "", "Google Cloud Storage bucket name (default: ukr-voice-transcriber-temp)")
-	
+
 	// Add subcommands
 	rootCmd.AddCommand(authCmd)
 	rootCmd.AddCommand(transcribeCmd)

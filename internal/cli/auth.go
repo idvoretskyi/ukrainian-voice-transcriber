@@ -6,8 +6,8 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/spf13/cobra"
 	"github.com/idvoretskyi/ukrainian-voice-transcriber/internal/auth"
+	"github.com/spf13/cobra"
 )
 
 // authCmd represents the auth command
@@ -30,20 +30,20 @@ Examples:
   ukrainian-voice-transcriber auth --status  # Check authentication status`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		oauth := auth.NewOAuthManager()
-		
+
 		status, _ := cmd.Flags().GetBool("status")
-		
+
 		if status {
 			return showAuthStatus(oauth)
 		}
-		
+
 		// Show authentication setup instructions
 		ctx := context.Background()
 		err := oauth.StartAuthFlow(ctx)
 		if err != nil {
 			return err
 		}
-		
+
 		return nil
 	},
 }
@@ -51,17 +51,17 @@ Examples:
 // showAuthStatus shows current authentication status
 func showAuthStatus(oauth *auth.OAuthManager) error {
 	fmt.Printf("🔍 Checking authentication status...\n\n")
-	
+
 	// Check if gcloud is available and authenticated
 	fmt.Printf("1. Checking gcloud CLI:\n")
-	
+
 	// Check if gcloud is installed
 	if _, err := exec.LookPath("gcloud"); err != nil {
 		fmt.Printf("   ❌ gcloud CLI not found\n")
 		fmt.Printf("   Install: https://cloud.google.com/sdk/docs/install\n")
 	} else {
 		fmt.Printf("   ✅ gcloud CLI found\n")
-		
+
 		// Check if user is logged in
 		cmd := exec.Command("gcloud", "auth", "list", "--filter=status:ACTIVE", "--format=value(account)")
 		output, err := cmd.Output()
@@ -70,7 +70,7 @@ func showAuthStatus(oauth *auth.OAuthManager) error {
 			fmt.Printf("   Run: gcloud auth login\n")
 		} else {
 			fmt.Printf("   ✅ gcloud user authenticated\n")
-			
+
 			// Check application default credentials
 			cmd = exec.Command("gcloud", "auth", "application-default", "print-access-token")
 			_, err = cmd.Output()
@@ -82,16 +82,16 @@ func showAuthStatus(oauth *auth.OAuthManager) error {
 			}
 		}
 	}
-	
+
 	fmt.Printf("\n2. Checking service account:\n")
 	if _, err := os.Stat("service-account.json"); err == nil {
 		fmt.Printf("   ✅ service-account.json found\n")
 	} else {
 		fmt.Printf("   ❌ service-account.json not found\n")
 	}
-	
+
 	fmt.Printf("\n💡 For setup instructions, run: ukrainian-voice-transcriber auth\n")
-	
+
 	return nil
 }
 

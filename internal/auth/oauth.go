@@ -29,4 +29,3 @@ Then this app will automatically use your gcloud credentials.
 
 Alternatively, place a service-account.json file in the current directory.`)
 }
-

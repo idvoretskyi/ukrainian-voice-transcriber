@@ -32,13 +32,13 @@ func NewService(client *storageapi.Client, cfg *config.Config, projectID string)
 // EnsureBucket creates bucket if it doesn't exist
 func (s *Service) EnsureBucket(ctx context.Context) error {
 	bucket := s.client.Bucket(s.config.BucketName)
-	
+
 	// Check if bucket exists
 	_, err := bucket.Attrs(ctx)
 	if err == nil {
 		return nil // Bucket exists
 	}
-	
+
 	// Create bucket
 	if err := bucket.Create(ctx, s.projectID, &storageapi.BucketAttrs{
 		Location: "US",
@@ -55,28 +55,28 @@ func (s *Service) EnsureBucket(ctx context.Context) error {
 	}); err != nil {
 		return fmt.Errorf("failed to create bucket: %v", err)
 	}
-	
+
 	return nil
 }
 
 // UploadFile uploads file to Google Cloud Storage
 func (s *Service) UploadFile(ctx context.Context, filePath string) (string, error) {
 	fileName := fmt.Sprintf("audio_%d_%s", time.Now().Unix(), filepath.Base(filePath))
-	
+
 	if s.config.Verbose && !s.config.Quiet {
 		fmt.Printf("🔍 Uploading to GCS: %s\n", fileName)
 	}
-	
+
 	bucket := s.client.Bucket(s.config.BucketName)
 	obj := bucket.Object(fileName)
-	
+
 	// Open local file
 	file, err := os.Open(filePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to open file: %v", err)
 	}
 	defer file.Close()
-	
+
 	// Upload to GCS
 	writer := obj.NewWriter(ctx)
 	if _, err := io.Copy(writer, file); err != nil {
@@ -85,13 +85,13 @@ func (s *Service) UploadFile(ctx context.Context, filePath string) (string, erro
 	if err := writer.Close(); err != nil {
 		return "", fmt.Errorf("failed to close writer: %v", err)
 	}
-	
+
 	gcsURI := fmt.Sprintf("gs://%s/%s", s.config.BucketName, fileName)
-	
+
 	if s.config.Verbose && !s.config.Quiet {
 		fmt.Printf("🔍 File uploaded to: %s\n", gcsURI)
 	}
-	
+
 	return gcsURI, nil
 }
 
@@ -103,10 +103,10 @@ func (s *Service) CleanupFile(ctx context.Context, gcsURI string) {
 		return
 	}
 	objectName := parts[len(parts)-1]
-	
+
 	bucket := s.client.Bucket(s.config.BucketName)
 	obj := bucket.Object(objectName)
-	
+
 	if err := obj.Delete(ctx); err != nil {
 		if s.config.Verbose && !s.config.Quiet {
 			fmt.Printf("🔍 Failed to cleanup %s: %v\n", objectName, err)
