@@ -1,6 +1,5 @@
 // Ukrainian Voice Transcriber
-//
-// Copyright (c) 2025 Ihor Dvoretskyi
+// Copyright (c) {{ YEAR }} Ihor Dvoretskyi
 //
 // Licensed under MIT License
 
@@ -52,7 +51,7 @@ var transcribeCmd = &cobra.Command{
 
 		// Create directory based on video filename and save transcript
 		if outputFile != "" {
-			if err := os.WriteFile(outputFile, []byte(result.Text), 0600); err != nil {
+			if err := os.WriteFile(outputFile, []byte(result.Text), 0o600); err != nil {
 				return fmt.Errorf("failed to save transcript: %v", err)
 			}
 			if !globalConfig.Quiet {
@@ -73,7 +72,7 @@ var transcribeCmd = &cobra.Command{
 
 			// Save transcript to file in the new directory with original filename (spaces replaced with underscores)
 			transcriptPath := filepath.Join(dirName, dirName+".txt")
-			if err := os.WriteFile(transcriptPath, []byte(result.Text), 0600); err != nil {
+			if err := os.WriteFile(transcriptPath, []byte(result.Text), 0o600); err != nil {
 				return fmt.Errorf("failed to save transcript: %v", err)
 			}
 

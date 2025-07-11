@@ -1,6 +1,5 @@
 // Ukrainian Voice Transcriber
-//
-// Copyright (c) 2025 Ihor Dvoretskyi
+// Copyright (c) {{ YEAR }} Ihor Dvoretskyi
 //
 // Licensed under MIT License
 
@@ -226,6 +225,7 @@ func (t *Transcriber) TranscribeLocalFile(videoPath string) *TranscriptionResult
 	}
 
 	processingTime := time.Since(startTime)
+
 	wordCount := len(strings.Fields(transcript))
 
 	return &TranscriptionResult{
@@ -244,5 +244,6 @@ func (t *Transcriber) Close() error {
 	if t.storageClient != nil {
 		t.storageClient.Close()
 	}
+
 	return nil
 }

@@ -24,7 +24,7 @@ import (
 var setupCmd = &cobra.Command{
 	Use:   "setup",
 	Short: "Check setup and configuration",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, args []string) error {
 		fmt.Printf("🚀 %s v%s - Setup Check\n", appName, version)
 		fmt.Println(strings.Repeat("=", 50))
 
@@ -32,6 +32,7 @@ var setupCmd = &cobra.Command{
 		if _, err := exec.LookPath("ffmpeg"); err != nil {
 			fmt.Println("❌ FFmpeg not found")
 			fmt.Println("   Install: brew install ffmpeg (macOS) or apt install ffmpeg (Ubuntu)")
+
 			return fmt.Errorf("FFmpeg required")
 		}
 		fmt.Println("✅ FFmpeg found")
@@ -54,6 +55,7 @@ var setupCmd = &cobra.Command{
 				fmt.Println("   Option 1 (Recommended): gcloud auth application-default login")
 				fmt.Println("   Option 2: Place service-account.json in current directory")
 				fmt.Println("   Option 3: ukrainian-voice-transcriber auth")
+
 				return fmt.Errorf("authentication required")
 			}
 		}

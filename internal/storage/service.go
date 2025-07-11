@@ -1,6 +1,5 @@
 // Ukrainian Voice Transcriber
-//
-// Copyright (c) 2025 Ihor Dvoretskyi
+// Copyright (c) {{ YEAR }} Ihor Dvoretskyi
 //
 // Licensed under MIT License
 
@@ -89,6 +88,7 @@ func (s *Service) UploadFile(ctx context.Context, filePath string) (string, erro
 	if _, err := io.Copy(writer, file); err != nil {
 		return "", fmt.Errorf("failed to upload file: %v", err)
 	}
+
 	if err := writer.Close(); err != nil {
 		return "", fmt.Errorf("failed to close writer: %v", err)
 	}
@@ -109,6 +109,7 @@ func (s *Service) CleanupFile(ctx context.Context, gcsURI string) {
 	if len(parts) < 4 {
 		return
 	}
+
 	objectName := parts[len(parts)-1]
 
 	bucket := s.client.Bucket(s.config.BucketName)
