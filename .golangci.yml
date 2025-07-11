@@ -28,9 +28,7 @@ linters:
     - goconst
     - gomodguard
     - revive
-    - exportloopref
     - nilerr
-    - tenv
     - testpackage
     - tparallel
     - wastedassign

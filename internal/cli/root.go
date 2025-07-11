@@ -21,7 +21,7 @@ const (
 
 var globalConfig config.Config
 
-// rootCmd represents the base command when called without any subcommands
+// rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
 	Use:   "ukrainian-voice-transcriber",
 	Short: "AI-powered Ukrainian video-to-text transcription",

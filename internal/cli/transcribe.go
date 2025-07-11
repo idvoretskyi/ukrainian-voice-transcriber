@@ -1,5 +1,5 @@
 // Ukrainian Voice Transcriber
-// Copyright (c) {{ YEAR }} Ihor Dvoretskyi
+// Copyright (c) 2025 Ihor Dvoretskyi
 //
 // Licensed under MIT License
 
@@ -66,7 +66,7 @@ var transcribeCmd = &cobra.Command{
 			dirName := strings.ReplaceAll(videoNameWithoutExt, " ", "_")
 
 			// Create directory
-			if err := os.MkdirAll(dirName, 0o755); err != nil {
+			if err := os.MkdirAll(dirName, 0o750); err != nil {
 				return fmt.Errorf("failed to create directory %s: %v", dirName, err)
 			}
 

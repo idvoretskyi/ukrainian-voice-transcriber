@@ -17,7 +17,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// authCmd represents the auth command
+// authCmd represents the auth command.
 var authCmd = &cobra.Command{
 	Use:   "auth",
 	Short: "Authenticate with Google Cloud using OAuth",
@@ -35,10 +35,13 @@ Alternative methods:
 Examples:
   ukrainian-voice-transcriber auth           # Show setup instructions
   ukrainian-voice-transcriber auth --status  # Check authentication status`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		oauth := auth.NewOAuthManager()
 
-		status, _ := cmd.Flags().GetBool("status")
+		status, err := cmd.Flags().GetBool("status")
+		if err != nil {
+			return err
+		}
 
 		if status {
 			return showAuthStatus(oauth)
@@ -46,7 +49,7 @@ Examples:
 
 		// Show authentication setup instructions
 		ctx := context.Background()
-		err := oauth.StartAuthFlow(ctx)
+		err = oauth.StartAuthFlow(ctx)
 		if err != nil {
 			return err
 		}
@@ -55,8 +58,8 @@ Examples:
 	},
 }
 
-// showAuthStatus shows current authentication status
-func showAuthStatus(oauth *auth.OAuthManager) error {
+// showAuthStatus shows current authentication status.
+func showAuthStatus(_ *auth.OAuthManager) error {
 	fmt.Printf("🔍 Checking authentication status...\n\n")
 
 	// Check if gcloud is available and authenticated

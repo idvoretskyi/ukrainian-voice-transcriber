@@ -1,5 +1,5 @@
 // Ukrainian Voice Transcriber
-// Copyright (c) {{ YEAR }} Ihor Dvoretskyi
+// Copyright (c) 2025 Ihor Dvoretskyi
 //
 // Licensed under MIT License
 
@@ -30,7 +30,7 @@ func SetVersion(version, date, commit string) {
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Show version information",
-	Run: func(_ *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		fmt.Printf("%s %s\n", appName, buildVersion)
 		fmt.Printf("Build Date: %s\n", buildDate)
 		fmt.Printf("Git Commit: %s\n", buildCommit)

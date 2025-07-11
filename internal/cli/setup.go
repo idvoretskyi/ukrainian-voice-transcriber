@@ -20,11 +20,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// setupCmd represents the setup command
+// setupCmd represents the setup command.
 var setupCmd = &cobra.Command{
 	Use:   "setup",
 	Short: "Check setup and configuration",
-	RunE: func(_ *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, _ []string) error {
 		fmt.Printf("🚀 %s v%s - Setup Check\n", appName, version)
 		fmt.Println(strings.Repeat("=", 50))
 

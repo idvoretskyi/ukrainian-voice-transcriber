@@ -1,5 +1,5 @@
 // Ukrainian Voice Transcriber
-// Copyright (c) {{ YEAR }} Ihor Dvoretskyi
+// Copyright (c) 2025 Ihor Dvoretskyi
 //
 // Licensed under MIT License
 
