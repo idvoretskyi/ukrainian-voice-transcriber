@@ -1,9 +1,32 @@
 name: Release
 
 on:
+  # Automatic release when tags are pushed
   push:
     tags:
       - 'v*'
+  
+  # Manual release creation
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 1.2.0)'
+        required: true
+        type: string
+      release_type:
+        description: 'Type of release'
+        required: true
+        default: 'minor'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -12,14 +35,58 @@ permissions:
 
 env:
   GO_VERSION: '1.24'
-  REGISTRY: ghcr.io
 
 jobs:
+  # Manual tag creation (only for workflow_dispatch)
+  create-tag:
+    name: Create Release Tag
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    outputs:
+      tag_name: ${{ steps.tag.outputs.tag_name }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate version format
+        run: |
+          if [[ ! "${{ github.event.inputs.version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "❌ Invalid version format. Use semantic versioning (e.g., 1.2.0)"
+            exit 1
+          fi
+
+      - name: Check if tag exists
+        run: |
+          if git rev-parse "v${{ github.event.inputs.version }}" >/dev/null 2>&1; then
+            echo "❌ Tag v${{ github.event.inputs.version }} already exists"
+            exit 1
+          fi
+
+      - name: Create and push tag
+        id: tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          TAG_NAME="v${{ github.event.inputs.version }}"
+          git tag -a "${TAG_NAME}" -m "Release ${TAG_NAME}"
+          git push origin "${TAG_NAME}"
+          
+          echo "tag_name=${TAG_NAME}" >> $GITHUB_OUTPUT
+          echo "✅ Created and pushed tag ${TAG_NAME}"
+
+  # Pre-release quality checks
   pre-release-checks:
     name: Pre-release Quality Gate
     runs-on: ubuntu-latest
+    needs: [create-tag]
+    if: always() && (needs.create-tag.result == 'success' || github.event_name == 'push')
     outputs:
       go-version: ${{ steps.setup.outputs.go-version }}
+      version: ${{ steps.version.outputs.version }}
       
     steps:
       - name: Checkout repository
@@ -32,6 +99,16 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+
+      - name: Extract version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="v${{ github.event.inputs.version }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/}
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Cache Go modules
         uses: actions/cache@v4
@@ -62,10 +139,11 @@ jobs:
           name: release-coverage
           fail_ci_if_error: false
 
+  # Code quality analysis
   code-quality:
     name: Code Quality Analysis
     runs-on: ubuntu-latest
-    needs: pre-release-checks
+    needs: [pre-release-checks]
     
     steps:
       - name: Checkout repository
@@ -86,7 +164,8 @@ jobs:
 
       - name: Run Go security scanner
         run: |
-          go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          echo "$HOME/go/bin" >> $GITHUB_PATH
           gosec -fmt sarif -out gosec-results.sarif ./...
 
       - name: Upload gosec results
@@ -96,10 +175,11 @@ jobs:
           sarif_file: gosec-results.sarif
           category: gosec
 
+  # Security vulnerability scanning
   security-scan:
     name: Security Vulnerability Scan
     runs-on: ubuntu-latest
-    needs: pre-release-checks
+    needs: [pre-release-checks]
     
     steps:
       - name: Checkout repository
@@ -115,6 +195,7 @@ jobs:
       - name: Run Go vulnerability check
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
+          echo "$HOME/go/bin" >> $GITHUB_PATH
           govulncheck ./...
 
       - name: Run Trivy vulnerability scanner
@@ -133,85 +214,171 @@ jobs:
           sarif_file: 'trivy-results.sarif'
           category: trivy
 
-  release:
-    name: Build and Release
-    runs-on: ubuntu-latest
+  # Build and release with SLSA
+  build:
+    name: SLSA3 Build
+    permissions:
+      id-token: write # To sign the provenance.
+      contents: write # To upload assets to release.
+      actions: read   # To read the workflow path.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/builder_go_slsa3.yml@v1.10.0
     needs: [pre-release-checks, code-quality, security-scan]
+    with:
+      go-version: ${{ env.GO_VERSION }}
+      config-file: .slsa-goreleaser.yml
+      evaluated-envs: "VERSION:${{ needs.pre-release-checks.outputs.version || github.ref_name }}"
+
+  # Upload binaries to release
+  upload:
+    name: Upload Assets
+    runs-on: ubuntu-latest
+    needs: [build]
+    permissions:
+      contents: write
     
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-
-      - name: Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Extract release metadata
         id: meta
         run: |
-          VERSION=${GITHUB_REF#refs/tags/}
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="v${{ github.event.inputs.version }}"
+            PRERELEASE="${{ github.event.inputs.prerelease }}"
+            RELEASE_TYPE="${{ github.event.inputs.release_type }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/}
+            PRERELEASE="false"
+            RELEASE_TYPE="release"
+          fi
+          
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "release-name=Ukrainian Voice Transcriber ${VERSION}" >> $GITHUB_OUTPUT
+          echo "prerelease=${PRERELEASE}" >> $GITHUB_OUTPUT
+          echo "release-type=${RELEASE_TYPE}" >> $GITHUB_OUTPUT
 
+<<<<<<< HEAD
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
+=======
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+>>>>>>> 8d96621 (feat: refactor release workflow; add manual tag creation and SLSA3 compliance, update copyright year, and improve authentication messages)
         with:
-          distribution: goreleaser
-          version: latest
-          args: release --clean --timeout=60m
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          path: ./artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.meta.outputs.version }}
+          name: ${{ steps.meta.outputs.release-name }}
+          prerelease: ${{ steps.meta.outputs.prerelease }}
+          generate_release_notes: true
+          body: |
+            ## Ukrainian Voice Transcriber ${{ steps.meta.outputs.version }}
+            
+            🔒 **SLSA3 Compliant Release** - This release includes cryptographic provenance attestations for supply chain security.
+            
+            ### Installation
+            
+            **Quick Install:**
+            ```bash
+            # Linux/macOS
+            curl -L -o ukrainian-voice-transcriber.tar.gz https://github.com/idvoretskyi/ukrainian-voice-transcriber/releases/download/${{ steps.meta.outputs.version }}/ukrainian-voice-transcriber_linux_amd64.tar.gz
+            tar -xzf ukrainian-voice-transcriber.tar.gz
+            chmod +x ukrainian-voice-transcriber
+            ```
+            
+            **Available Platforms:**
+            - Linux (x64, ARM64)
+            - macOS (Intel, Apple Silicon)
+            - Windows (x64)
+            
+            ### Setup
+            
+            1. Install FFmpeg: `brew install ffmpeg` (macOS) or `apt install ffmpeg` (Ubuntu)
+            2. Set up authentication: `gcloud auth application-default login`
+            3. Run setup: `./ukrainian-voice-transcriber setup`
+            
+            ### Usage
+            
+            ```bash
+            # Basic transcription
+            ./ukrainian-voice-transcriber transcribe video.mp4
+            
+            # Check authentication
+            ./ukrainian-voice-transcriber auth --status
+            ```
+            
+            ### Security
+            
+            This release includes SLSA3 provenance attestations. You can verify the integrity using:
+            ```bash
+            # Verify with slsa-verifier
+            slsa-verifier verify-artifact --provenance-path <provenance-file> --source-uri github.com/${{ github.repository }} <binary>
+            ```
+            
+            🇺🇦 **Made with ❤️ for Ukrainian content creators**
+          files: |
+            ./artifacts/**/*
 
       - name: Generate release summary
         if: always()
         run: |
-          echo "## 🚀 Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 SLSA3 Release Summary" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** ${{ steps.meta.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "**Release Name:** ${{ steps.meta.outputs.release-name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Type:** ${{ steps.meta.outputs.release-type }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Pre-release:** ${{ steps.meta.outputs.prerelease }}" >> $GITHUB_STEP_SUMMARY
           echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
           echo "**Go Version:** ${{ env.GO_VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Security:** SLSA3 Compliant ✅" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔒 Security Features" >> $GITHUB_STEP_SUMMARY
+          echo "- SLSA3 provenance attestations included" >> $GITHUB_STEP_SUMMARY
+          echo "- Cryptographic signatures for supply chain verification" >> $GITHUB_STEP_SUMMARY
+          echo "- Immutable build environment with GitHub-hosted runners" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📦 Artifacts" >> $GITHUB_STEP_SUMMARY
           echo "- Multi-platform binaries (Linux, macOS, Windows)" >> $GITHUB_STEP_SUMMARY
-          echo "- Docker images published to ${{ env.REGISTRY }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Homebrew formula updated" >> $GITHUB_STEP_SUMMARY
-          echo "- Linux packages (DEB, RPM, APK)" >> $GITHUB_STEP_SUMMARY
+          echo "- Provenance files for each binary" >> $GITHUB_STEP_SUMMARY
+          echo "- Checksums and signatures" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
           echo "- [GitHub Release](https://github.com/${{ github.repository }}/releases/tag/${{ steps.meta.outputs.version }})" >> $GITHUB_STEP_SUMMARY
-          echo "- [Container Images](${{ env.REGISTRY }}/${{ github.repository }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [SLSA Framework](https://slsa.dev/)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🇺🇦 Made with ❤️ for Ukrainian content creators" >> $GITHUB_STEP_SUMMARY
 
+  # Post-release verification
   post-release:
     name: Post-release Verification
     runs-on: ubuntu-latest
-    needs: release
+    needs: [upload]
     if: always()
     
     steps:
       - name: Verify release artifacts
         run: |
           echo "Verifying release artifacts..."
-          curl -s "https://api.github.com/repos/${{ github.repository }}/releases/tags/${GITHUB_REF#refs/tags/}" | jq -r '.assets[].name'
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG_NAME="v${{ github.event.inputs.version }}"
+          else
+            TAG_NAME=${GITHUB_REF#refs/tags/}
+          fi
+          
+          curl -s "https://api.github.com/repos/${{ github.repository }}/releases/tags/${TAG_NAME}" | jq -r '.assets[].name'
+
+      - name: Notify success
+        if: success()
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="v${{ github.event.inputs.version }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/}
+          fi
+          
+          echo "🎉 Release ${VERSION} completed successfully!"
+          echo "📦 All artifacts have been built and published"
+          echo "🔗 Release URL: https://github.com/${{ github.repository }}/releases/tag/${VERSION}"
 
       - name: Notify on failure
         if: failure()

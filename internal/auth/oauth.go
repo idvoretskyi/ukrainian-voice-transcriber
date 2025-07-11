@@ -15,7 +15,7 @@ import (
 // OAuthManager handles Google OAuth authentication.
 type OAuthManager struct {
 	// projectID is not currently used but kept for future expansion
-	projectID string //nolint:unused
+	projectID string //nolint:unused // This field is reserved for future use
 }
 
 // NewOAuthManager creates a new OAuth manager with a simple approach.
@@ -27,13 +27,5 @@ func NewOAuthManager() *OAuthManager {
 
 // StartAuthFlow uses gcloud for simple authentication.
 func (om *OAuthManager) StartAuthFlow(_ context.Context) error {
-	return fmt.Errorf(`for the simplest setup, please use gcloud authentication:
-
-1. Install gcloud CLI: https://cloud.google.com/sdk/docs/install
-2. Run: gcloud auth login
-3. Run: gcloud auth application-default login
-
-Then this app will automatically use your gcloud credentials.
-
-Alternatively, place a service-account.json file in the current directory.`)
+	return fmt.Errorf("for the simplest setup, please use gcloud authentication:\n\n1. Install gcloud CLI: https://cloud.google.com/sdk/docs/install\n2. Run: gcloud auth login\n3. Run: gcloud auth application-default login\n\nThen this app will automatically use your gcloud credentials.\n\nAlternatively, place a service-account.json file in the current directory")
 }

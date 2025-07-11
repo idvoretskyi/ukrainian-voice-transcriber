@@ -75,6 +75,7 @@ func showAuthStatus(_ *auth.OAuthManager) error {
 		// Check if user is logged in
 		cmd := exec.Command("gcloud", "auth", "list", "--filter=status:ACTIVE", "--format=value(account)")
 		output, err := cmd.Output()
+
 		if err != nil || len(output) == 0 {
 			fmt.Printf("   ❌ No active gcloud authentication\n")
 			fmt.Printf("   Run: gcloud auth login\n")
@@ -84,6 +85,7 @@ func showAuthStatus(_ *auth.OAuthManager) error {
 			// Check application default credentials
 			cmd = exec.Command("gcloud", "auth", "application-default", "print-access-token")
 			_, err = cmd.Output()
+
 			if err != nil {
 				fmt.Printf("   ❌ Application default credentials not set\n")
 				fmt.Printf("   Run: gcloud auth application-default login\n")

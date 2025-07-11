@@ -26,11 +26,11 @@ import (
 // TranscriptionResult represents the result of a transcription.
 type TranscriptionResult struct {
 	Text           string        `json:"text"`
-	Success        bool          `json:"success"`
 	Error          string        `json:"error,omitempty"`
 	Duration       time.Duration `json:"duration,omitempty"`
-	WordCount      int           `json:"word_count"`
 	ProcessingTime time.Duration `json:"processing_time,omitempty"`
+	WordCount      int           `json:"word_count"`
+	Success        bool          `json:"success"`
 }
 
 // Transcriber handles the main transcription logic.
@@ -68,83 +68,14 @@ func getProjectIDFromGcloud() (string, error) {
 func New(cfg *config.Config) (*Transcriber, error) {
 	ctx := context.Background()
 
-	var speechClient *speechapi.Client
-
-	var storageClient *storageapi.Client
-
-	var err error
-
-	var projectID string
-
-	// Try Application Default Credentials (works with gcloud auth)
-	speechClient, err = speechapi.NewClient(ctx)
+	// Initialize Google Cloud clients
+	speechClient, storageClient, projectID, err := initializeClients(ctx, cfg)
 	if err != nil {
-		// Fall back to service account
-		serviceAccountPath := config.FindServiceAccount()
-		if serviceAccountPath == "" {
-			return nil, fmt.Errorf(`authentication required. Choose one option:
-
-1. Use gcloud (Recommended):
-   gcloud auth login
-   gcloud auth application-default login
-
-2. Service Account:
-   Place service-account.json in current directory
-
-3. OAuth setup:
-   ukrainian-voice-transcriber auth`)
-		}
-
-		cfg.ServiceAccountPath = serviceAccountPath
-
-		// Initialize Google Cloud clients with service account
-		speechClient, err = speechapi.NewClient(ctx, option.WithCredentialsFile(serviceAccountPath))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create speech client: %v", err)
-		}
-
-		storageClient, err = storageapi.NewClient(ctx, option.WithCredentialsFile(serviceAccountPath))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create storage client: %v", err)
-		}
-
-		if !cfg.Quiet {
-			fmt.Printf("🔑 Using service account authentication\n")
-		}
-
-		// For service account, we need to extract project ID from the service account file
-		// or use environment variable
-		projectID = os.Getenv("GOOGLE_CLOUD_PROJECT")
-		if projectID == "" {
-			projectID = "ukrainian-voice-transcriber" // Default project name
-		}
-	} else {
-		// Use Application Default Credentials (gcloud)
-		storageClient, err = storageapi.NewClient(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create storage client: %v", err)
-		}
-
-		// Get project ID from gcloud
-		projectID, err = getProjectIDFromGcloud()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get project ID: %v", err)
-		}
-
-		if !cfg.Quiet {
-			fmt.Printf("🔐 Using Application Default Credentials (gcloud)\n")
-			fmt.Printf("📊 Project: %s\n", projectID)
-		}
+		return nil, err
 	}
 
 	// Set default bucket name if not provided
-	if cfg.BucketName == "" {
-		if projectID != "" {
-			cfg.BucketName = fmt.Sprintf("%s-ukr-voice-transcriber", projectID)
-		} else {
-			cfg.BucketName = "ukr-voice-transcriber-temp"
-		}
-	}
+	setBucketName(cfg, projectID)
 
 	// Initialize services
 	speechService := speech.NewService(speechClient, cfg)
@@ -165,13 +96,96 @@ func New(cfg *config.Config) (*Transcriber, error) {
 	}
 
 	// Check for Drive credentials (for future use)
+	configureDriveCredentials(cfg, transcriber)
+
+	return transcriber, nil
+}
+
+// initializeClients initializes Google Cloud clients and returns them with project ID.
+func initializeClients(ctx context.Context, cfg *config.Config) (*speechapi.Client, *storageapi.Client, string, error) {
+	// Try Application Default Credentials (works with gcloud auth)
+	speechClient, err := speechapi.NewClient(ctx)
+	if err != nil {
+		return initializeWithServiceAccount(ctx, cfg)
+	}
+
+	return initializeWithDefaultCredentials(ctx, cfg, speechClient)
+}
+
+// initializeWithServiceAccount initializes clients using service account authentication.
+func initializeWithServiceAccount(ctx context.Context, cfg *config.Config) (*speechapi.Client, *storageapi.Client, string, error) {
+	serviceAccountPath := config.FindServiceAccount()
+	if serviceAccountPath == "" {
+		return nil, nil, "", fmt.Errorf("authentication required. Choose one option:\n\n1. Use gcloud (Recommended):\n   gcloud auth login\n   gcloud auth application-default login\n\n2. Service Account:\n   Place service-account.json in current directory\n\n3. OAuth setup:\n   ukrainian-voice-transcriber auth")
+	}
+
+	cfg.ServiceAccountPath = serviceAccountPath
+
+	// Initialize Google Cloud clients with service account
+	speechClient, err := speechapi.NewClient(ctx, option.WithCredentialsFile(serviceAccountPath))
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to create speech client: %v", err)
+	}
+
+	storageClient, err := storageapi.NewClient(ctx, option.WithCredentialsFile(serviceAccountPath))
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to create storage client: %v", err)
+	}
+
+	if !cfg.Quiet {
+		fmt.Printf("🔑 Using service account authentication\n")
+	}
+
+	// For service account, we need to extract project ID from the service account file
+	// or use environment variable
+	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
+	if projectID == "" {
+		projectID = "ukrainian-voice-transcriber" // Default project name
+	}
+
+	return speechClient, storageClient, projectID, nil
+}
+
+// initializeWithDefaultCredentials initializes clients using Application Default Credentials.
+func initializeWithDefaultCredentials(ctx context.Context, cfg *config.Config, speechClient *speechapi.Client) (*speechapi.Client, *storageapi.Client, string, error) {
+	// Use Application Default Credentials (gcloud)
+	storageClient, err := storageapi.NewClient(ctx)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to create storage client: %v", err)
+	}
+
+	// Get project ID from gcloud
+	projectID, err := getProjectIDFromGcloud()
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to get project ID: %v", err)
+	}
+
+	if !cfg.Quiet {
+		fmt.Printf("🔐 Using Application Default Credentials (gcloud)\n")
+		fmt.Printf("📊 Project: %s\n", projectID)
+	}
+
+	return speechClient, storageClient, projectID, nil
+}
+
+// setBucketName sets the default bucket name if not provided.
+func setBucketName(cfg *config.Config, projectID string) {
+	if cfg.BucketName == "" {
+		if projectID != "" {
+			cfg.BucketName = fmt.Sprintf("%s-ukr-voice-transcriber", projectID)
+		} else {
+			cfg.BucketName = "ukr-voice-transcriber-temp"
+		}
+	}
+}
+
+// configureDriveCredentials checks for Drive credentials and configures them.
+func configureDriveCredentials(cfg *config.Config, transcriber *Transcriber) {
 	driveCredPath := config.FindDriveCredentials()
 	if driveCredPath != "" {
 		cfg.DriveCredentials = driveCredPath
 		transcriber.logInfo("Google Drive credentials found (ready for future Drive support)")
 	}
-
-	return transcriber, nil
 }
 
 // logInfo logs info messages if not in quiet mode.
