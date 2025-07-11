@@ -1,3 +1,6 @@
+// Ukrainian Voice Transcriber
+
+// Package cli provides command-line interface functionality.
 package cli
 
 import (
@@ -5,8 +8,9 @@ import (
 	"os/exec"
 	"strings"
 
-	speechapi "cloud.google.com/go/speech/apiv1"
 	"context"
+
+	speechapi "cloud.google.com/go/speech/apiv1"
 	"github.com/idvoretskyi/ukrainian-voice-transcriber/internal/transcriber"
 	"github.com/idvoretskyi/ukrainian-voice-transcriber/pkg/config"
 	"github.com/spf13/cobra"

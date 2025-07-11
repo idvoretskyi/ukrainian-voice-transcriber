@@ -1,3 +1,6 @@
+// Ukrainian Voice Transcriber
+
+// Package speech provides Google Cloud Speech-to-Text functionality.
 package speech
 
 import (
@@ -10,13 +13,13 @@ import (
 	"github.com/idvoretskyi/ukrainian-voice-transcriber/pkg/config"
 )
 
-// Service handles Google Cloud Speech-to-Text operations
+// Service handles Google Cloud Speech-to-Text operations.
 type Service struct {
 	client *speechapi.Client
 	config *config.Config
 }
 
-// NewService creates a new speech service
+// NewService creates a new speech service.
 func NewService(client *speechapi.Client, cfg *config.Config) *Service {
 	return &Service{
 		client: client,
@@ -24,7 +27,7 @@ func NewService(client *speechapi.Client, cfg *config.Config) *Service {
 	}
 }
 
-// TranscribeAudio transcribes audio using Google Cloud Speech-to-Text
+// TranscribeAudio transcribes audio using Google Cloud Speech-to-Text.
 func (s *Service) TranscribeAudio(ctx context.Context, gcsURI string) (string, error) {
 	if !s.config.Quiet {
 		fmt.Println("ℹ️  Starting transcription...")
@@ -64,7 +67,7 @@ func (s *Service) TranscribeAudio(ctx context.Context, gcsURI string) (string, e
 	return transcript, nil
 }
 
-// transcribeLongRunning handles long-running transcription
+// transcribeLongRunning handles long-running transcription.
 func (s *Service) transcribeLongRunning(ctx context.Context, gcsURI string) (string, error) {
 	if !s.config.Quiet {
 		fmt.Println("ℹ️  Using long-running recognition...")
@@ -109,7 +112,7 @@ func (s *Service) transcribeLongRunning(ctx context.Context, gcsURI string) (str
 	return transcript, nil
 }
 
-// extractTranscript extracts text from speech recognition results
+// extractTranscript extracts text from speech recognition results.
 func (s *Service) extractTranscript(results []*speechpb.SpeechRecognitionResult) string {
 	var transcript strings.Builder
 

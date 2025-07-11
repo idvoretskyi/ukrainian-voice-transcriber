@@ -1,3 +1,6 @@
+// Ukrainian Voice Transcriber
+
+// Package main provides the application entry point.
 package main
 
 import (

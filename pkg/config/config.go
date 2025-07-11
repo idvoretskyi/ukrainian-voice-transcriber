@@ -1,3 +1,5 @@
+// Ukrainian Voice Transcriber
+
 // Package config provides configuration structures and utilities.
 package config
 

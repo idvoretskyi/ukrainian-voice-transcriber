@@ -1,3 +1,6 @@
+// Ukrainian Voice Transcriber
+
+// Package storage provides Google Cloud Storage functionality.
 package storage
 
 import (
@@ -13,14 +16,14 @@ import (
 	"github.com/idvoretskyi/ukrainian-voice-transcriber/pkg/config"
 )
 
-// Service handles Google Cloud Storage operations
+// Service handles Google Cloud Storage operations.
 type Service struct {
 	client    *storageapi.Client
 	config    *config.Config
 	projectID string
 }
 
-// NewService creates a new storage service
+// NewService creates a new storage service.
 func NewService(client *storageapi.Client, cfg *config.Config, projectID string) *Service {
 	return &Service{
 		client:    client,
@@ -29,7 +32,7 @@ func NewService(client *storageapi.Client, cfg *config.Config, projectID string)
 	}
 }
 
-// EnsureBucket creates bucket if it doesn't exist
+// EnsureBucket creates bucket if it doesn't exist.
 func (s *Service) EnsureBucket(ctx context.Context) error {
 	bucket := s.client.Bucket(s.config.BucketName)
 
@@ -59,7 +62,7 @@ func (s *Service) EnsureBucket(ctx context.Context) error {
 	return nil
 }
 
-// UploadFile uploads file to Google Cloud Storage
+// UploadFile uploads file to Google Cloud Storage.
 func (s *Service) UploadFile(ctx context.Context, filePath string) (string, error) {
 	fileName := fmt.Sprintf("audio_%d_%s", time.Now().Unix(), filepath.Base(filePath))
 
@@ -95,7 +98,7 @@ func (s *Service) UploadFile(ctx context.Context, filePath string) (string, erro
 	return gcsURI, nil
 }
 
-// CleanupFile removes file from Google Cloud Storage
+// CleanupFile removes file from Google Cloud Storage.
 func (s *Service) CleanupFile(ctx context.Context, gcsURI string) {
 	// Extract object name from URI
 	parts := strings.Split(gcsURI, "/")

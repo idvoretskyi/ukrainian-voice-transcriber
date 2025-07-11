@@ -1,3 +1,5 @@
+// Ukrainian Voice Transcriber
+
 // Package transcriber provides audio transcription functionality.
 package transcriber
 

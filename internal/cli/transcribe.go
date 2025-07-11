@@ -1,3 +1,6 @@
+// Ukrainian Voice Transcriber
+
+// Package cli provides command-line interface functionality.
 package cli
 
 import (

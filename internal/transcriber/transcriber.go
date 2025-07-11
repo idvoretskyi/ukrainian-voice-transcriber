@@ -1,3 +1,5 @@
+// Ukrainian Voice Transcriber
+
 // Package transcriber provides video transcription functionality.
 package transcriber
 
@@ -64,8 +66,11 @@ func New(cfg *config.Config) (*Transcriber, error) {
 	ctx := context.Background()
 
 	var speechClient *speechapi.Client
+
 	var storageClient *storageapi.Client
+
 	var err error
+
 	var projectID string
 
 	// Try Application Default Credentials (works with gcloud auth)
