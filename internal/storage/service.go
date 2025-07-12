@@ -16,6 +16,7 @@ import (
 	"time"
 
 	storageapi "cloud.google.com/go/storage"
+
 	"github.com/idvoretskyi/ukrainian-voice-transcriber/pkg/config"
 )
 
@@ -77,11 +78,18 @@ func (s *Service) UploadFile(ctx context.Context, filePath string) (string, erro
 	obj := bucket.Object(fileName)
 
 	// Open local file
-	file, err := os.Open(filePath)
+	file, err := os.Open(filePath) //nolint:gosec // File path is validated by caller
 	if err != nil {
 		return "", fmt.Errorf("failed to open file: %v", err)
 	}
-	defer file.Close()
+
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			if s.config.Verbose && !s.config.Quiet {
+				fmt.Printf("🔍 Warning: Failed to close file: %v\n", closeErr)
+			}
+		}
+	}()
 
 	// Upload to GCS
 	writer := obj.NewWriter(ctx)

@@ -1,5 +1,4 @@
 // Ukrainian Voice Transcriber
-//
 // Copyright (c) 2025 Ihor Dvoretskyi
 //
 // Licensed under MIT License
@@ -27,5 +26,10 @@ func NewOAuthManager() *OAuthManager {
 
 // StartAuthFlow uses gcloud for simple authentication.
 func (om *OAuthManager) StartAuthFlow(_ context.Context) error {
-	return fmt.Errorf("for the simplest setup, please use gcloud authentication:\n\n1. Install gcloud CLI: https://cloud.google.com/sdk/docs/install\n2. Run: gcloud auth login\n3. Run: gcloud auth application-default login\n\nThen this app will automatically use your gcloud credentials.\n\nAlternatively, place a service-account.json file in the current directory")
+	return fmt.Errorf("for the simplest setup, please use gcloud authentication:\n\n" +
+		"1. Install gcloud CLI: https://cloud.google.com/sdk/docs/install\n" +
+		"2. Run: gcloud auth login\n" +
+		"3. Run: gcloud auth application-default login\n\n" +
+		"Then this app will automatically use your gcloud credentials.\n\n" +
+		"Alternatively, place a service-account.json file in the current directory")
 }

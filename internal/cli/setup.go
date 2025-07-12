@@ -1,5 +1,4 @@
 // Ukrainian Voice Transcriber
-//
 // Copyright (c) 2025 Ihor Dvoretskyi
 //
 // Licensed under MIT License
@@ -8,16 +7,16 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
 
-	"context"
-
 	speechapi "cloud.google.com/go/speech/apiv1"
+	"github.com/spf13/cobra"
+
 	"github.com/idvoretskyi/ukrainian-voice-transcriber/internal/transcriber"
 	"github.com/idvoretskyi/ukrainian-voice-transcriber/pkg/config"
-	"github.com/spf13/cobra"
 )
 
 // setupCmd represents the setup command.
@@ -25,7 +24,7 @@ var setupCmd = &cobra.Command{
 	Use:   "setup",
 	Short: "Check setup and configuration",
 	RunE: func(_ *cobra.Command, _ []string) error {
-		fmt.Printf("🚀 %s v%s - Setup Check\n", appName, version)
+		fmt.Printf("🚀 %s v%s - Setup Check\n", appName, buildVersion)
 		fmt.Println(strings.Repeat("=", 50))
 
 		// Check FFmpeg
@@ -73,7 +72,11 @@ var setupCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("initialization test failed: %v", err)
 		}
-		defer t.Close()
+		defer func() {
+			if closeErr := t.Close(); closeErr != nil {
+				fmt.Printf("Warning: Failed to close transcriber: %v\n", closeErr)
+			}
+		}()
 
 		fmt.Println("✅ Google Cloud clients initialized successfully")
 		fmt.Printf("✅ Storage bucket ready: %s\n", globalConfig.BucketName)

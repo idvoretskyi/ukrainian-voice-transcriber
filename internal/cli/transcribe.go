@@ -10,10 +10,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
-	"github.com/idvoretskyi/ukrainian-voice-transcriber/internal/transcriber"
 	"github.com/spf13/cobra"
+
+	"github.com/idvoretskyi/ukrainian-voice-transcriber/internal/transcriber"
 )
 
 var outputFile string
@@ -26,12 +28,31 @@ var transcribeCmd = &cobra.Command{
 	RunE: func(_ *cobra.Command, args []string) error {
 		videoFile := args[0]
 
+		// Validate input file exists and is accessible
+		fileInfo, err := os.Stat(videoFile)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return fmt.Errorf("video file not found: %s", videoFile)
+			}
+
+			return fmt.Errorf("cannot access video file: %v", err)
+		}
+
+		// Check if it's a regular file (not a directory or device)
+		if !fileInfo.Mode().IsRegular() {
+			return fmt.Errorf("not a regular file: %s", videoFile)
+		}
+
 		// Initialize transcriber
 		t, err := transcriber.New(&globalConfig)
 		if err != nil {
 			return fmt.Errorf("initialization failed: %v", err)
 		}
-		defer t.Close()
+		defer func() {
+			if closeErr := t.Close(); closeErr != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "Warning: Failed to close transcriber: %v\n", closeErr)
+			}
+		}()
 
 		// Transcribe file
 		result := t.TranscribeLocalFile(videoFile)
@@ -51,6 +72,15 @@ var transcribeCmd = &cobra.Command{
 
 		// Create directory based on video filename and save transcript
 		if outputFile != "" {
+			// Ensure the directory for the output file exists
+			outputDir := filepath.Dir(outputFile)
+			if outputDir != "." && outputDir != "" {
+				if err := os.MkdirAll(outputDir, 0o750); err != nil {
+					return fmt.Errorf("failed to create directory for output file: %v", err)
+				}
+			}
+
+			// Use secure file permissions (0600 = rw-------)
 			if err := os.WriteFile(outputFile, []byte(result.Text), 0o600); err != nil {
 				return fmt.Errorf("failed to save transcript: %v", err)
 			}
@@ -62,16 +92,17 @@ var transcribeCmd = &cobra.Command{
 			videoBaseName := filepath.Base(videoFile)
 			videoNameWithoutExt := strings.TrimSuffix(videoBaseName, filepath.Ext(videoBaseName))
 
-			// Replace spaces with underscores
-			dirName := strings.ReplaceAll(videoNameWithoutExt, " ", "_")
+			// Sanitize directory name: replace spaces with underscores and remove special characters
+			dirName := sanitizeFilename(videoNameWithoutExt)
 
-			// Create directory
+			// Create directory with secure permissions (0750 = rwxr-x---)
 			if err := os.MkdirAll(dirName, 0o750); err != nil {
 				return fmt.Errorf("failed to create directory %s: %v", dirName, err)
 			}
 
-			// Save transcript to file in the new directory with original filename (spaces replaced with underscores)
+			// Save transcript to file in the new directory with sanitized filename
 			transcriptPath := filepath.Join(dirName, dirName+".txt")
+			// Use secure file permissions (0600 = rw-------)
 			if err := os.WriteFile(transcriptPath, []byte(result.Text), 0o600); err != nil {
 				return fmt.Errorf("failed to save transcript: %v", err)
 			}
@@ -85,6 +116,25 @@ var transcribeCmd = &cobra.Command{
 	},
 }
 
+// sanitizeFilename removes special characters and replaces spaces with underscores
+// to create a safe filename for use in the filesystem.
+func sanitizeFilename(filename string) string {
+	// Replace spaces with underscores
+	filename = strings.ReplaceAll(filename, " ", "_")
+
+	// Remove any character that's not alphanumeric, underscore, hyphen, or period
+	reg := regexp.MustCompile(`[^a-zA-Z0-9_\-.]`)
+	filename = reg.ReplaceAllString(filename, "")
+
+	// Ensure the filename is not empty
+	if filename == "" {
+		return "transcript"
+	}
+
+	return filename
+}
+
 func init() {
-	transcribeCmd.Flags().StringVarP(&outputFile, "output", "o", "", "Output file path (default: stdout)")
+	transcribeCmd.Flags().StringVarP(&outputFile, "output", "o", "",
+		"Output file path (default: creates directory based on video filename)")
 }

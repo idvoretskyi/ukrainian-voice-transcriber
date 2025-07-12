@@ -5,7 +5,7 @@ on:
   push:
     tags:
       - 'v*'
-  
+
   # Manual release creation
   workflow_dispatch:
     inputs:
@@ -34,7 +34,7 @@ permissions:
   security-events: write
 
 env:
-  GO_VERSION: '1.24'
+  GO_VERSION: '1.22'
 
 jobs:
   # Manual tag creation (only for workflow_dispatch)
@@ -44,7 +44,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     outputs:
       tag_name: ${{ steps.tag.outputs.tag_name }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -70,11 +70,11 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
+
           TAG_NAME="v${{ github.event.inputs.version }}"
           git tag -a "${TAG_NAME}" -m "Release ${TAG_NAME}"
           git push origin "${TAG_NAME}"
-          
+
           echo "tag_name=${TAG_NAME}" >> $GITHUB_OUTPUT
           echo "✅ Created and pushed tag ${TAG_NAME}"
 
@@ -87,7 +87,7 @@ jobs:
     outputs:
       go-version: ${{ steps.setup.outputs.go-version }}
       version: ${{ steps.version.outputs.version }}
-      
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -134,7 +134,7 @@ jobs:
         uses: codecov/codecov-action@v5
         if: always()
         with:
-          file: ./coverage.out
+          files: ./coverage.out
           flags: unittests
           name: release-coverage
           fail_ci_if_error: false
@@ -144,7 +144,7 @@ jobs:
     name: Code Quality Analysis
     runs-on: ubuntu-latest
     needs: [pre-release-checks]
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -159,12 +159,12 @@ jobs:
       - name: Run linter
         uses: golangci/golangci-lint-action@v8
         with:
-          version: latest
+          version: v1.56.2
           args: --timeout=5m --verbose
 
       - name: Run Go security scanner
         run: |
-          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          go install github.com/securego/gosec/v2/cmd/gosec@v2.18.2
           echo "$HOME/go/bin" >> $GITHUB_PATH
           gosec -fmt sarif -out gosec-results.sarif ./...
 
@@ -180,7 +180,7 @@ jobs:
     name: Security Vulnerability Scan
     runs-on: ubuntu-latest
     needs: [pre-release-checks]
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -194,12 +194,12 @@ jobs:
 
       - name: Run Go vulnerability check
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install golang.org/x/vuln/cmd/govulncheck@v1.0.1
           echo "$HOME/go/bin" >> $GITHUB_PATH
           govulncheck ./...
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -235,7 +235,7 @@ jobs:
     needs: [build]
     permissions:
       contents: write
-    
+
     steps:
       - name: Extract release metadata
         id: meta
@@ -249,20 +249,16 @@ jobs:
             PRERELEASE="false"
             RELEASE_TYPE="release"
           fi
-          
+
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "release-name=Ukrainian Voice Transcriber ${VERSION}" >> $GITHUB_OUTPUT
           echo "prerelease=${PRERELEASE}" >> $GITHUB_OUTPUT
           echo "release-type=${RELEASE_TYPE}" >> $GITHUB_OUTPUT
 
-<<<<<<< HEAD
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
-=======
       - name: Download build artifacts
         uses: actions/download-artifact@v4
->>>>>>> 8d96621 (feat: refactor release workflow; add manual tag creation and SLSA3 compliance, update copyright year, and improve authentication messages)
         with:
+          name: ukrainian-voice-transcriber
           path: ./artifacts
 
       - name: Create GitHub Release
@@ -274,11 +270,11 @@ jobs:
           generate_release_notes: true
           body: |
             ## Ukrainian Voice Transcriber ${{ steps.meta.outputs.version }}
-            
+
             🔒 **SLSA3 Compliant Release** - This release includes cryptographic provenance attestations for supply chain security.
-            
+
             ### Installation
-            
+
             **Quick Install:**
             ```bash
             # Linux/macOS
@@ -286,36 +282,36 @@ jobs:
             tar -xzf ukrainian-voice-transcriber.tar.gz
             chmod +x ukrainian-voice-transcriber
             ```
-            
+
             **Available Platforms:**
             - Linux (x64, ARM64)
             - macOS (Intel, Apple Silicon)
             - Windows (x64)
-            
+
             ### Setup
-            
+
             1. Install FFmpeg: `brew install ffmpeg` (macOS) or `apt install ffmpeg` (Ubuntu)
             2. Set up authentication: `gcloud auth application-default login`
             3. Run setup: `./ukrainian-voice-transcriber setup`
-            
+
             ### Usage
-            
+
             ```bash
             # Basic transcription
             ./ukrainian-voice-transcriber transcribe video.mp4
-            
+
             # Check authentication
             ./ukrainian-voice-transcriber auth --status
             ```
-            
+
             ### Security
-            
+
             This release includes SLSA3 provenance attestations. You can verify the integrity using:
             ```bash
             # Verify with slsa-verifier
             slsa-verifier verify-artifact --provenance-path <provenance-file> --source-uri github.com/${{ github.repository }} <binary>
             ```
-            
+
             🇺🇦 **Made with ❤️ for Ukrainian content creators**
           files: |
             ./artifacts/**/*
@@ -354,7 +350,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [upload]
     if: always()
-    
+
     steps:
       - name: Verify release artifacts
         run: |
@@ -364,7 +360,7 @@ jobs:
           else
             TAG_NAME=${GITHUB_REF#refs/tags/}
           fi
-          
+
           curl -s "https://api.github.com/repos/${{ github.repository }}/releases/tags/${TAG_NAME}" | jq -r '.assets[].name'
 
       - name: Notify success
@@ -375,7 +371,7 @@ jobs:
           else
             VERSION=${GITHUB_REF#refs/tags/}
           fi
-          
+
           echo "🎉 Release ${VERSION} completed successfully!"
           echo "📦 All artifacts have been built and published"
           echo "🔗 Release URL: https://github.com/${{ github.repository }}/releases/tag/${VERSION}"

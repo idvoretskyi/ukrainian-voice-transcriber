@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -49,14 +50,29 @@ func getProjectIDFromGcloud() (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "gcloud", "config", "get-value", "project")
-
-	output, err := cmd.Output()
+	// Use a fixed path for gcloud to avoid path traversal
+	gcloudPath, err := exec.LookPath("gcloud")
 	if err != nil {
-		return "", fmt.Errorf("failed to get project ID from gcloud: %v", err)
+		return "", fmt.Errorf("gcloud command not found: %v", err)
 	}
 
-	projectID := strings.TrimSpace(string(output))
+	// Use only fixed arguments to avoid command injection
+	cmd := exec.CommandContext(ctx, gcloudPath, "config", "get-value", "project") //nolint:gosec // gcloudPath is validated
+
+	// Restrict command execution environment
+	cmd.Env = []string{"PATH=" + filepath.Dir(gcloudPath)}
+
+	// Capture both stdout and stderr
+	var stdout, stderr strings.Builder
+
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to get project ID from gcloud: %v, stderr: %s", err, stderr.String())
+	}
+
+	projectID := strings.TrimSpace(stdout.String())
 	if projectID == "" {
 		return "", fmt.Errorf("no project ID configured in gcloud. Run: gcloud config set project PROJECT_ID")
 	}
@@ -102,9 +118,11 @@ func New(cfg *config.Config) (*Transcriber, error) {
 }
 
 // initializeClients initializes Google Cloud clients and returns them with project ID.
-func initializeClients(ctx context.Context, cfg *config.Config) (*speechapi.Client, *storageapi.Client, string, error) {
+func initializeClients(ctx context.Context, cfg *config.Config) (
+	speechClient *speechapi.Client, storageClient *storageapi.Client, projectID string, err error,
+) {
 	// Try Application Default Credentials (works with gcloud auth)
-	speechClient, err := speechapi.NewClient(ctx)
+	speechClient, err = speechapi.NewClient(ctx)
 	if err != nil {
 		return initializeWithServiceAccount(ctx, cfg)
 	}
@@ -113,21 +131,26 @@ func initializeClients(ctx context.Context, cfg *config.Config) (*speechapi.Clie
 }
 
 // initializeWithServiceAccount initializes clients using service account authentication.
-func initializeWithServiceAccount(ctx context.Context, cfg *config.Config) (*speechapi.Client, *storageapi.Client, string, error) {
+func initializeWithServiceAccount(ctx context.Context, cfg *config.Config) (
+	speechClient *speechapi.Client, storageClient *storageapi.Client, projectID string, err error,
+) {
 	serviceAccountPath := config.FindServiceAccount()
 	if serviceAccountPath == "" {
-		return nil, nil, "", fmt.Errorf("authentication required. Choose one option:\n\n1. Use gcloud (Recommended):\n   gcloud auth login\n   gcloud auth application-default login\n\n2. Service Account:\n   Place service-account.json in current directory\n\n3. OAuth setup:\n   ukrainian-voice-transcriber auth")
+		return nil, nil, "", fmt.Errorf("authentication required. Choose one option:\n\n" +
+			"1. Use gcloud (Recommended):\n   gcloud auth login\n   gcloud auth application-default login\n\n" +
+			"2. Service Account:\n   Place service-account.json in current directory\n\n" +
+			"3. OAuth setup:\n   ukrainian-voice-transcriber auth")
 	}
 
 	cfg.ServiceAccountPath = serviceAccountPath
 
 	// Initialize Google Cloud clients with service account
-	speechClient, err := speechapi.NewClient(ctx, option.WithCredentialsFile(serviceAccountPath))
+	speechClient, err = speechapi.NewClient(ctx, option.WithCredentialsFile(serviceAccountPath))
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("failed to create speech client: %v", err)
 	}
 
-	storageClient, err := storageapi.NewClient(ctx, option.WithCredentialsFile(serviceAccountPath))
+	storageClient, err = storageapi.NewClient(ctx, option.WithCredentialsFile(serviceAccountPath))
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("failed to create storage client: %v", err)
 	}
@@ -138,24 +161,28 @@ func initializeWithServiceAccount(ctx context.Context, cfg *config.Config) (*spe
 
 	// For service account, we need to extract project ID from the service account file
 	// or use environment variable
-	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
+	projectID = os.Getenv("GOOGLE_CLOUD_PROJECT")
 	if projectID == "" {
-		projectID = "ukrainian-voice-transcriber" // Default project name
+		// Try to get project ID from service account file (would require parsing JSON)
+		// For now, return an error if project ID is not set
+		return nil, nil, "", fmt.Errorf("project ID not set. Please set GOOGLE_CLOUD_PROJECT environment variable")
 	}
 
 	return speechClient, storageClient, projectID, nil
 }
 
 // initializeWithDefaultCredentials initializes clients using Application Default Credentials.
-func initializeWithDefaultCredentials(ctx context.Context, cfg *config.Config, speechClient *speechapi.Client) (*speechapi.Client, *storageapi.Client, string, error) {
+func initializeWithDefaultCredentials(
+	ctx context.Context, cfg *config.Config, speechClient *speechapi.Client,
+) (retSpeechClient *speechapi.Client, storageClient *storageapi.Client, projectID string, err error) {
 	// Use Application Default Credentials (gcloud)
-	storageClient, err := storageapi.NewClient(ctx)
+	storageClient, err = storageapi.NewClient(ctx)
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("failed to create storage client: %v", err)
 	}
 
 	// Get project ID from gcloud
-	projectID, err := getProjectIDFromGcloud()
+	projectID, err = getProjectIDFromGcloud()
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("failed to get project ID: %v", err)
 	}
@@ -169,13 +196,13 @@ func initializeWithDefaultCredentials(ctx context.Context, cfg *config.Config, s
 }
 
 // setBucketName sets the default bucket name if not provided.
+// Note: If both BucketName and projectID are empty, this will be caught later
+// when trying to ensure the bucket exists.
 func setBucketName(cfg *config.Config, projectID string) {
-	if cfg.BucketName == "" {
-		if projectID != "" {
-			cfg.BucketName = fmt.Sprintf("%s-ukr-voice-transcriber", projectID)
-		} else {
-			cfg.BucketName = "ukr-voice-transcriber-temp"
-		}
+	if cfg.BucketName == "" && projectID != "" {
+		// Create a bucket name based on project ID with a consistent suffix
+		// This avoids hardcoding a default bucket name
+		cfg.BucketName = fmt.Sprintf("%s-voice-transcriber-data", projectID)
 	}
 }
 
@@ -184,6 +211,7 @@ func configureDriveCredentials(cfg *config.Config, transcriber *Transcriber) {
 	driveCredPath := config.FindDriveCredentials()
 	if driveCredPath != "" {
 		cfg.DriveCredentials = driveCredPath
+
 		transcriber.logInfo("Google Drive credentials found (ready for future Drive support)")
 	}
 }
@@ -199,47 +227,42 @@ func (t *Transcriber) logInfo(msg string) {
 func (t *Transcriber) TranscribeLocalFile(videoPath string) *TranscriptionResult {
 	startTime := time.Now()
 
-	// Check if file exists
-	if _, err := os.Stat(videoPath); os.IsNotExist(err) {
+	// Validate input file
+	if err := t.validateInputFile(videoPath); err != nil {
 		return &TranscriptionResult{
 			Success: false,
-			Error:   fmt.Sprintf("File not found: %s", videoPath),
+			Error:   err.Error(),
 		}
 	}
 
 	t.logInfo(fmt.Sprintf("Processing: %s", videoPath))
 
-	// Extract audio
-	audioPath, err := extractAudio(videoPath, t.config)
+	// Create a context with timeout for the entire operation (30 minutes)
+	ctx, cancel := context.WithTimeout(t.ctx, 30*time.Minute)
+	defer cancel()
+
+	// Process audio (extract and upload)
+	gcsURI, audioCleanup, storageCleanup, err := t.processAudio(ctx, videoPath)
 	if err != nil {
 		return &TranscriptionResult{
 			Success: false,
-			Error:   fmt.Sprintf("Audio extraction failed: %v", err),
+			Error:   err.Error(),
 		}
 	}
-	defer os.Remove(audioPath) // Cleanup local audio file
+	defer audioCleanup()
+	defer storageCleanup()
 
-	// Upload to storage
-	gcsURI, err := t.storageService.UploadFile(t.ctx, audioPath)
+	// Perform transcription
+	transcript, err := t.performTranscription(ctx, gcsURI)
 	if err != nil {
 		return &TranscriptionResult{
 			Success: false,
-			Error:   fmt.Sprintf("Storage upload failed: %v", err),
-		}
-	}
-	defer t.storageService.CleanupFile(t.ctx, gcsURI) // Cleanup cloud storage
-
-	// Transcribe
-	transcript, err := t.speechService.TranscribeAudio(t.ctx, gcsURI)
-	if err != nil {
-		return &TranscriptionResult{
-			Success: false,
-			Error:   fmt.Sprintf("Transcription failed: %v", err),
+			Error:   err.Error(),
 		}
 	}
 
+	// Calculate results
 	processingTime := time.Since(startTime)
-
 	wordCount := len(strings.Fields(transcript))
 
 	return &TranscriptionResult{
@@ -250,13 +273,86 @@ func (t *Transcriber) TranscribeLocalFile(videoPath string) *TranscriptionResult
 	}
 }
 
+// validateInputFile checks if the input file exists and is accessible.
+func (t *Transcriber) validateInputFile(videoPath string) error {
+	if _, err := os.Stat(videoPath); os.IsNotExist(err) {
+		return fmt.Errorf("file not found: %s", videoPath)
+	}
+
+	return nil
+}
+
+// processAudio extracts audio and uploads it to storage, returning cleanup functions.
+func (t *Transcriber) processAudio(ctx context.Context, videoPath string) (string, func(), func(), error) {
+	// Extract audio
+	audioPath, err := extractAudio(videoPath, t.config)
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("audio extraction failed: %v", err)
+	}
+
+	// Setup audio cleanup
+	audioCleanup := func() {
+		if removeErr := os.Remove(audioPath); removeErr != nil && !os.IsNotExist(removeErr) {
+			t.logInfo(fmt.Sprintf("Warning: Failed to remove temporary audio file: %v", removeErr))
+		}
+	}
+
+	// Create a context with timeout for upload (5 minutes)
+	uploadCtx, uploadCancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer uploadCancel()
+
+	// Upload to storage
+	gcsURI, err := t.storageService.UploadFile(uploadCtx, audioPath)
+	if err != nil {
+		audioCleanup() // Clean up audio file on upload failure
+
+		return "", nil, nil, fmt.Errorf("storage upload failed: %v", err)
+	}
+
+	// Setup storage cleanup
+	storageCleanup := func() {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 1*time.Minute)
+		defer cleanupCancel()
+
+		t.storageService.CleanupFile(cleanupCtx, gcsURI)
+	}
+
+	return gcsURI, audioCleanup, storageCleanup, nil
+}
+
+// performTranscription executes the transcription process.
+func (t *Transcriber) performTranscription(ctx context.Context, gcsURI string) (string, error) {
+	// Create a context with timeout for transcription (20 minutes)
+	transcribeCtx, transcribeCancel := context.WithTimeout(ctx, 20*time.Minute)
+	defer transcribeCancel()
+
+	// Transcribe
+	transcript, err := t.speechService.TranscribeAudio(transcribeCtx, gcsURI)
+	if err != nil {
+		return "", fmt.Errorf("transcription failed: %v", err)
+	}
+
+	return transcript, nil
+}
+
 // Close closes all clients.
 func (t *Transcriber) Close() error {
+	var errs []string
+
 	if t.speechClient != nil {
-		t.speechClient.Close()
+		if err := t.speechClient.Close(); err != nil {
+			errs = append(errs, fmt.Sprintf("speech client close error: %v", err))
+		}
 	}
+
 	if t.storageClient != nil {
-		t.storageClient.Close()
+		if err := t.storageClient.Close(); err != nil {
+			errs = append(errs, fmt.Sprintf("storage client close error: %v", err))
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("close errors: %s", strings.Join(errs, "; "))
 	}
 
 	return nil

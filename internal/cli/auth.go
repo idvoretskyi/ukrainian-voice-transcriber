@@ -1,5 +1,4 @@
 // Ukrainian Voice Transcriber
-//
 // Copyright (c) 2025 Ihor Dvoretskyi
 //
 // Licensed under MIT License
@@ -13,8 +12,9 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/idvoretskyi/ukrainian-voice-transcriber/internal/auth"
 	"github.com/spf13/cobra"
+
+	"github.com/idvoretskyi/ukrainian-voice-transcriber/internal/auth"
 )
 
 // authCmd represents the auth command.
@@ -40,7 +40,7 @@ Examples:
 
 		status, err := cmd.Flags().GetBool("status")
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get status flag: %w", err)
 		}
 
 		if status {
@@ -51,7 +51,7 @@ Examples:
 		ctx := context.Background()
 		err = oauth.StartAuthFlow(ctx)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to start auth flow: %w", err)
 		}
 
 		return nil
@@ -74,8 +74,8 @@ func showAuthStatus(_ *auth.OAuthManager) error {
 
 		// Check if user is logged in
 		cmd := exec.Command("gcloud", "auth", "list", "--filter=status:ACTIVE", "--format=value(account)")
-		output, err := cmd.Output()
 
+		output, err := cmd.Output()
 		if err != nil || len(output) == 0 {
 			fmt.Printf("   ❌ No active gcloud authentication\n")
 			fmt.Printf("   Run: gcloud auth login\n")
@@ -84,8 +84,8 @@ func showAuthStatus(_ *auth.OAuthManager) error {
 
 			// Check application default credentials
 			cmd = exec.Command("gcloud", "auth", "application-default", "print-access-token")
-			_, err = cmd.Output()
 
+			_, err = cmd.Output()
 			if err != nil {
 				fmt.Printf("   ❌ Application default credentials not set\n")
 				fmt.Printf("   Run: gcloud auth application-default login\n")
@@ -96,6 +96,7 @@ func showAuthStatus(_ *auth.OAuthManager) error {
 	}
 
 	fmt.Printf("\n2. Checking service account:\n")
+
 	if _, err := os.Stat("service-account.json"); err == nil {
 		fmt.Printf("   ✅ service-account.json found\n")
 	} else {

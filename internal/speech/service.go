@@ -13,6 +13,7 @@ import (
 
 	speechapi "cloud.google.com/go/speech/apiv1"
 	"cloud.google.com/go/speech/apiv1/speechpb"
+
 	"github.com/idvoretskyi/ukrainian-voice-transcriber/pkg/config"
 )
 
