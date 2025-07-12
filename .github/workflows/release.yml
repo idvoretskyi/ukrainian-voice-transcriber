@@ -1,6 +1,7 @@
+---
 name: Release
 
-on:
+'on':
   # Automatic release when tags are pushed
   push:
     tags:
@@ -53,15 +54,17 @@ jobs:
 
       - name: Validate version format
         run: |
-          if [[ ! "${{ github.event.inputs.version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "❌ Invalid version format. Use semantic versioning (e.g., 1.2.0)"
+          version="${{ github.event.inputs.version }}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "❌ Invalid version format. Use semantic versioning"
             exit 1
           fi
 
       - name: Check if tag exists
         run: |
-          if git rev-parse "v${{ github.event.inputs.version }}" >/dev/null 2>&1; then
-            echo "❌ Tag v${{ github.event.inputs.version }} already exists"
+          version="${{ github.event.inputs.version }}"
+          if git rev-parse "v$version" >/dev/null 2>&1; then
+            echo "❌ Tag v$version already exists"
             exit 1
           fi
 
@@ -83,7 +86,9 @@ jobs:
     name: Pre-release Quality Gate
     runs-on: ubuntu-latest
     needs: [create-tag]
-    if: always() && (needs.create-tag.result == 'success' || github.event_name == 'push')
+    if: >
+      always() &&
+      (needs.create-tag.result == 'success' || github.event_name == 'push')
     outputs:
       go-version: ${{ steps.setup.outputs.go-version }}
       version: ${{ steps.version.outputs.version }}
@@ -218,15 +223,18 @@ jobs:
   build:
     name: SLSA3 Build
     permissions:
-      id-token: write # To sign the provenance.
-      contents: write # To upload assets to release.
+      id-token: write  # To sign the provenance.
+      contents: write  # To upload assets to release.
       actions: read   # To read the workflow path.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/builder_go_slsa3.yml@v1.10.0
+    uses: >-
+      slsa-framework/slsa-github-generator/.github/workflows/builder_go_slsa3.yml@v2.1.0
     needs: [pre-release-checks, code-quality, security-scan]
     with:
-      go-version: ${{ env.GO_VERSION }}
+      go-version: '1.22'
       config-file: .slsa-goreleaser.yml
-      evaluated-envs: "VERSION:${{ needs.pre-release-checks.outputs.version || github.ref_name }}"
+      evaluated-envs: >-
+        VERSION:${{ needs.pre-release-checks.outputs.version ||
+        github.ref_name }}
 
   # Upload binaries to release
   upload:
@@ -251,7 +259,8 @@ jobs:
           fi
 
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "release-name=Ukrainian Voice Transcriber ${VERSION}" >> $GITHUB_OUTPUT
+          echo "release-name=Ukrainian Voice Transcriber ${VERSION}" >> \
+            $GITHUB_OUTPUT
           echo "prerelease=${PRERELEASE}" >> $GITHUB_OUTPUT
           echo "release-type=${RELEASE_TYPE}" >> $GITHUB_OUTPUT
 
@@ -271,14 +280,17 @@ jobs:
           body: |
             ## Ukrainian Voice Transcriber ${{ steps.meta.outputs.version }}
 
-            🔒 **SLSA3 Compliant Release** - This release includes cryptographic provenance attestations for supply chain security.
+            🔒 **SLSA3 Compliant Release** - This release includes
+            cryptographic provenance attestations for supply chain security.
 
             ### Installation
 
             **Quick Install:**
             ```bash
             # Linux/macOS
-            curl -L -o ukrainian-voice-transcriber.tar.gz https://github.com/idvoretskyi/ukrainian-voice-transcriber/releases/download/${{ steps.meta.outputs.version }}/ukrainian-voice-transcriber_linux_amd64.tar.gz
+            VERSION=${{ steps.meta.outputs.version }}
+            curl -L -o ukrainian-voice-transcriber.tar.gz \
+              "https://github.com/idvoretskyi/ukrainian-voice-transcriber/releases/download/${VERSION}/ukrainian-voice-transcriber_linux_amd64.tar.gz"
             tar -xzf ukrainian-voice-transcriber.tar.gz
             chmod +x ukrainian-voice-transcriber
             ```
@@ -290,7 +302,8 @@ jobs:
 
             ### Setup
 
-            1. Install FFmpeg: `brew install ffmpeg` (macOS) or `apt install ffmpeg` (Ubuntu)
+            1. Install FFmpeg: `brew install ffmpeg` (macOS) or
+               `apt install ffmpeg` (Ubuntu)
             2. Set up authentication: `gcloud auth application-default login`
             3. Run setup: `./ukrainian-voice-transcriber setup`
 
@@ -306,10 +319,12 @@ jobs:
 
             ### Security
 
-            This release includes SLSA3 provenance attestations. You can verify the integrity using:
+            This release includes SLSA3 provenance attestations.
+            You can verify the integrity using:
             ```bash
             # Verify with slsa-verifier
-            slsa-verifier verify-artifact --provenance-path <provenance-file> --source-uri github.com/${{ github.repository }} <binary>
+            slsa-verifier verify-artifact --provenance-path <provenance-file> \
+              --source-uri github.com/${{ github.repository }} <binary>
             ```
 
             🇺🇦 **Made with ❤️ for Ukrainian content creators**
@@ -320,29 +335,41 @@ jobs:
         if: always()
         run: |
           echo "## 🚀 SLSA3 Release Summary" >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** ${{ steps.meta.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Release Name:** ${{ steps.meta.outputs.release-name }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Type:** ${{ steps.meta.outputs.release-type }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Pre-release:** ${{ steps.meta.outputs.prerelease }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.meta.outputs.version }}" >> \
+            $GITHUB_STEP_SUMMARY
+          echo "**Release Name:** ${{ steps.meta.outputs.release-name }}" >> \
+            $GITHUB_STEP_SUMMARY
+          echo "**Type:** ${{ steps.meta.outputs.release-type }}" >> \
+            $GITHUB_STEP_SUMMARY
+          echo "**Pre-release:** ${{ steps.meta.outputs.prerelease }}" >> \
+            $GITHUB_STEP_SUMMARY
           echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
           echo "**Go Version:** ${{ env.GO_VERSION }}" >> $GITHUB_STEP_SUMMARY
           echo "**Security:** SLSA3 Compliant ✅" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔒 Security Features" >> $GITHUB_STEP_SUMMARY
-          echo "- SLSA3 provenance attestations included" >> $GITHUB_STEP_SUMMARY
-          echo "- Cryptographic signatures for supply chain verification" >> $GITHUB_STEP_SUMMARY
-          echo "- Immutable build environment with GitHub-hosted runners" >> $GITHUB_STEP_SUMMARY
+          echo "- SLSA3 provenance attestations included" >> \
+            $GITHUB_STEP_SUMMARY
+          echo "- Cryptographic signatures for supply chain verification" >> \
+            $GITHUB_STEP_SUMMARY
+          echo "- Immutable build environment with GitHub-hosted runners" >> \
+            $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📦 Artifacts" >> $GITHUB_STEP_SUMMARY
-          echo "- Multi-platform binaries (Linux, macOS, Windows)" >> $GITHUB_STEP_SUMMARY
+          echo "- Multi-platform binaries (Linux, macOS, Windows)" >> \
+            $GITHUB_STEP_SUMMARY
           echo "- Provenance files for each binary" >> $GITHUB_STEP_SUMMARY
           echo "- Checksums and signatures" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
-          echo "- [GitHub Release](https://github.com/${{ github.repository }}/releases/tag/${{ steps.meta.outputs.version }})" >> $GITHUB_STEP_SUMMARY
+          REPO="${{ github.repository }}"
+          VERSION="${{ steps.meta.outputs.version }}"
+          RELEASE_URL="https://github.com/${REPO}/releases/tag/${VERSION}"
+          echo "- [GitHub Release](${RELEASE_URL})" >> $GITHUB_STEP_SUMMARY
           echo "- [SLSA Framework](https://slsa.dev/)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "🇺🇦 Made with ❤️ for Ukrainian content creators" >> $GITHUB_STEP_SUMMARY
+          echo "🇺🇦 Made with ❤️ for Ukrainian content creators" >> \
+            $GITHUB_STEP_SUMMARY
 
   # Post-release verification
   post-release:
@@ -361,7 +388,9 @@ jobs:
             TAG_NAME=${GITHUB_REF#refs/tags/}
           fi
 
-          curl -s "https://api.github.com/repos/${{ github.repository }}/releases/tags/${TAG_NAME}" | jq -r '.assets[].name'
+          REPO="${{ github.repository }}"
+          API_URL="https://api.github.com/repos/${REPO}/releases/tags"
+          curl -s "${API_URL}/${TAG_NAME}" | jq -r '.assets[].name'
 
       - name: Notify success
         if: success()
@@ -374,7 +403,9 @@ jobs:
 
           echo "🎉 Release ${VERSION} completed successfully!"
           echo "📦 All artifacts have been built and published"
-          echo "🔗 Release URL: https://github.com/${{ github.repository }}/releases/tag/${VERSION}"
+          REPO="${{ github.repository }}"
+          URL="https://github.com/${REPO}/releases/tag/${VERSION}"
+          echo "🔗 Release URL: ${URL}"
 
       - name: Notify on failure
         if: failure()

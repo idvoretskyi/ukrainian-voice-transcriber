@@ -1,5 +1,6 @@
 # Binaries
 ukrainian-voice-transcriber
+transcriber
 ukrainian-voice-transcriber-*
 *.exe
 
@@ -9,11 +10,15 @@ ukrainian-voice-transcriber-*
 vendor/
 coverage.out
 coverage.html
+*.sarif
 
 # Build directories
 dist/
 build/
 release/
+
+# Temporary scripts
+fix-headers.sh
 
 # Authentication & Credentials
 service-account.json
