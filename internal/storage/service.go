@@ -78,7 +78,7 @@ func (s *Service) UploadFile(ctx context.Context, filePath string) (string, erro
 	obj := bucket.Object(fileName)
 
 	// Open local file
-	file, err := os.Open(filePath) //nolint:gosec // File path is validated by caller
+	file, err := os.Open(filePath) // #nosec G304 File path is validated by caller
 	if err != nil {
 		return "", fmt.Errorf("failed to open file: %v", err)
 	}

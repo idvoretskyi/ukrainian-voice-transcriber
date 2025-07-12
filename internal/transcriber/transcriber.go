@@ -57,7 +57,7 @@ func getProjectIDFromGcloud() (string, error) {
 	}
 
 	// Use only fixed arguments to avoid command injection
-	cmd := exec.CommandContext(ctx, gcloudPath, "config", "get-value", "project") //nolint:gosec // gcloudPath is validated
+	cmd := exec.CommandContext(ctx, gcloudPath, "config", "get-value", "project") // #nosec G204 gcloudPath is validated
 
 	// Restrict command execution environment
 	cmd.Env = []string{"PATH=" + filepath.Dir(gcloudPath)}
