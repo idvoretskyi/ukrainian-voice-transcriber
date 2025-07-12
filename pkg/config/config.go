@@ -1,10 +1,16 @@
+// Ukrainian Voice Transcriber
+// Copyright (c) 2025 Ihor Dvoretskyi
+//
+// Licensed under MIT License
+
+// Package config provides configuration structures and utilities.
 package config
 
 import (
 	"os"
 )
 
-// Config holds application configuration
+// Config holds application configuration.
 type Config struct {
 	ServiceAccountPath string
 	DriveCredentials   string
@@ -13,7 +19,7 @@ type Config struct {
 	Quiet              bool
 }
 
-// FindServiceAccount looks for Google Cloud service account key
+// FindServiceAccount looks for Google Cloud service account key.
 func FindServiceAccount() string {
 	candidates := []string{
 		"service-account.json",
@@ -21,27 +27,29 @@ func FindServiceAccount() string {
 		"gcloud-key.json",
 		"key.json",
 	}
-	
+
 	for _, candidate := range candidates {
 		if _, err := os.Stat(candidate); err == nil {
 			return candidate
 		}
 	}
+
 	return ""
 }
 
-// FindDriveCredentials looks for Google Drive OAuth credentials
+// FindDriveCredentials looks for Google Drive OAuth credentials.
 func FindDriveCredentials() string {
 	candidates := []string{
 		"credentials.json",
 		"drive_credentials.json",
 		"client_secret.json",
 	}
-	
+
 	for _, candidate := range candidates {
 		if _, err := os.Stat(candidate); err == nil {
 			return candidate
 		}
 	}
+
 	return ""
 }

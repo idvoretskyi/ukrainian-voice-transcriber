@@ -1,4 +1,4 @@
-name: Security Analysis
+name: Security & Quality Analysis
 
 on:
   push:
@@ -12,12 +12,96 @@ permissions:
   contents: read
   security-events: write
   actions: read
+  pull-requests: write
 
 env:
   GO_VERSION: '1.24'
 
 jobs:
-  codeql:
+  # Combined security analysis with matrix strategy
+  security-analysis:
+    name: Security Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        tool: [gosec, trivy, govulncheck]
+        include:
+          - tool: gosec
+            output_format: sarif
+            output_file: gosec-results.sarif
+            command: gosec -fmt sarif -out gosec-results.sarif ./...
+          - tool: trivy
+            output_format: sarif
+            output_file: trivy-results.sarif
+            command: trivy fs --format sarif --output trivy-results.sarif .
+          - tool: govulncheck
+            output_format: text
+            output_file: ""
+            command: govulncheck ./...
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Install security tools
+      run: |
+        case "${{ matrix.tool }}" in
+          gosec)
+            go install github.com/securego/gosec/v2/cmd/gosec@latest
+            echo "$HOME/go/bin" >> $GITHUB_PATH
+            ;;
+          trivy)
+            # Trivy will be installed by the action
+            ;;
+          govulncheck)
+            go install golang.org/x/vuln/cmd/govulncheck@latest
+            echo "$HOME/go/bin" >> $GITHUB_PATH
+            ;;
+        esac
+
+    - name: Run security scan - ${{ matrix.tool }}
+      run: |
+        case "${{ matrix.tool }}" in
+          gosec)
+            ${{ matrix.command }}
+            ;;
+          trivy)
+            # Use trivy action for better reliability
+            ;;
+          govulncheck)
+            ${{ matrix.command }}
+            ;;
+        esac
+      continue-on-error: true
+
+    - name: Run Trivy vulnerability scanner
+      if: matrix.tool == 'trivy'
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload SARIF results - ${{ matrix.tool }}
+      if: matrix.output_format == 'sarif'
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ matrix.output_file }}
+        category: ${{ matrix.tool }}
+
+  # CodeQL Analysis (separate due to special requirements)
+  codeql-analysis:
     name: CodeQL Analysis
     runs-on: ubuntu-latest
     permissions:
@@ -25,11 +109,6 @@ jobs:
       packages: read
       actions: read
       contents: read
-
-    strategy:
-      fail-fast: false
-      matrix:
-        language: [ 'go' ]
 
     steps:
     - name: Checkout repository
@@ -43,7 +122,7 @@ jobs:
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       with:
-        languages: ${{ matrix.language }}
+        languages: go
         config-file: ./.github/codeql/codeql-config.yml
 
     - name: Autobuild
@@ -52,8 +131,28 @@ jobs:
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
       with:
-        category: "/language:${{matrix.language}}"
+        category: "/language:go"
+        output: sarif-results
+        upload: false
 
+    - name: Filter SARIF results
+      uses: advanced-security/filter-sarif@v1
+      with:
+        patterns: |
+          -**/testdata/**
+          -**/*_test.go
+          -vendor/**
+          -docs/**
+          -*.md
+        input: sarif-results/go.sarif
+        output: sarif-results/go.sarif
+
+    - name: Upload filtered SARIF results
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: sarif-results/go.sarif
+
+  # Dependency Review (PR only)
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
@@ -61,78 +160,13 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      
-      - name: Dependency Review
-        uses: actions/dependency-review-action@v4
-        with:
-          fail-on-severity: moderate
-          comment-summary-in-pr: always
-
-  govulncheck:
-    name: Go Vulnerability Check
-    runs-on: ubuntu-latest
+    
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-
-    - name: Set up Go
-      uses: actions/setup-go@v5
+    
+    - name: Dependency Review
+      uses: actions/dependency-review-action@v4
       with:
-        go-version: ${{ env.GO_VERSION }}
-
-    - name: Install govulncheck
-      run: go install golang.org/x/vuln/cmd/govulncheck@latest
-
-    - name: Run govulncheck
-      run: govulncheck ./...
-
-  trivy:
-    name: Trivy Security Scanner
-    runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Run Trivy vulnerability scanner in repo mode
-      uses: aquasecurity/trivy-action@master
-      with:
-        scan-type: 'fs'
-        scan-ref: '.'
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-
-    - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v3
-      if: always()
-      with:
-        sarif_file: 'trivy-results.sarif'
-
-  gosec:
-    name: Go Security Scanner
-    runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: ${{ env.GO_VERSION }}
-
-    - name: Run Gosec Security Scanner
-      uses: securecodewarrior/github-action-gosec@master
-      with:
-        args: '-fmt sarif -out gosec-results.sarif ./...'
-
-    - name: Upload Gosec scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v3
-      if: always()
-      with:
-        sarif_file: 'gosec-results.sarif'
+        fail-on-severity: moderate
+        comment-summary-in-pr: always

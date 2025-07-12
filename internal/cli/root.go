@@ -1,20 +1,26 @@
+// Ukrainian Voice Transcriber
+// Copyright (c) 2025 Ihor Dvoretskyi
+//
+// Licensed under MIT License
+
+// Package cli provides command-line interface functionality.
 package cli
 
 import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+
 	"github.com/idvoretskyi/ukrainian-voice-transcriber/pkg/config"
 )
 
 const (
-	version = "1.0.0"
 	appName = "Ukrainian Voice Transcriber"
 )
 
 var globalConfig config.Config
 
-// rootCmd represents the base command when called without any subcommands
+// rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
 	Use:   "ukrainian-voice-transcriber",
 	Short: "AI-powered Ukrainian video-to-text transcription",
@@ -38,22 +44,27 @@ Examples:
   ukrainian-voice-transcriber transcribe video.mp4
   ukrainian-voice-transcriber transcribe video.mp4 -o transcript.txt
   ukrainian-voice-transcriber transcribe video.mp4 --verbose
-  ukrainian-voice-transcriber version`, appName, version),
+  ukrainian-voice-transcriber version`, appName, buildVersion),
 	SilenceUsage: true,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() error {
-	return rootCmd.Execute()
+	if err := rootCmd.Execute(); err != nil {
+		return fmt.Errorf("command execution failed: %w", err)
+	}
+
+	return nil
 }
 
 func init() {
 	// Global flags
 	rootCmd.PersistentFlags().BoolVarP(&globalConfig.Verbose, "verbose", "v", false, "Enable verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&globalConfig.Quiet, "quiet", "q", false, "Suppress all output except results")
-	rootCmd.PersistentFlags().StringVar(&globalConfig.BucketName, "bucket", "", "Google Cloud Storage bucket name (default: ukr-voice-transcriber-temp)")
-	
+	rootCmd.PersistentFlags().StringVar(&globalConfig.BucketName, "bucket", "",
+		"Google Cloud Storage bucket name (default: ukr-voice-transcriber-temp)")
+
 	// Add subcommands
 	rootCmd.AddCommand(authCmd)
 	rootCmd.AddCommand(transcribeCmd)

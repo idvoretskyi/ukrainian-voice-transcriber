@@ -1,0 +1,28 @@
+# SLSA Go releaser configuration
+# This file configures the SLSA3 compliant build process
+
+version: 1
+
+env:
+  - CGO_ENABLED=0
+
+flags:
+  - -trimpath
+  - -tags=netgo
+
+goos:
+  - linux
+  - darwin
+  - windows
+
+goarch:
+  - amd64
+  - arm64
+
+binary: ukrainian-voice-transcriber
+
+main: ./cmd/transcriber
+
+ldflags:
+  - "-s -w"
+  - "-X main.version={{ .Env.VERSION }}"

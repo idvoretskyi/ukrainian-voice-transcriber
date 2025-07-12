@@ -1,3 +1,9 @@
+// Ukrainian Voice Transcriber
+// Copyright (c) 2025 Ihor Dvoretskyi
+//
+// Licensed under MIT License
+
+// Package cli provides command-line interface functionality.
 package cli
 
 import (
@@ -6,25 +12,25 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Build information
+// Build information.
 var (
 	buildVersion = "dev"
 	buildDate    = "unknown"
 	buildCommit  = "unknown"
 )
 
-// SetVersion sets the version information from build flags
+// SetVersion sets the version information from build flags.
 func SetVersion(version, date, commit string) {
 	buildVersion = version
 	buildDate = date
 	buildCommit = commit
 }
 
-// versionCmd represents the version command
+// versionCmd represents the version command.
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Show version information",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		fmt.Printf("%s %s\n", appName, buildVersion)
 		fmt.Printf("Build Date: %s\n", buildDate)
 		fmt.Printf("Git Commit: %s\n", buildCommit)
