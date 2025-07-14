@@ -199,7 +199,7 @@ jobs:
           govulncheck ./...
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.32.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -262,7 +262,7 @@ jobs:
           path: ./artifacts
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.version }}
           name: ${{ steps.meta.outputs.release-name }}
