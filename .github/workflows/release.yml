@@ -221,7 +221,7 @@ jobs:
       id-token: write # To sign the provenance.
       contents: write # To upload assets to release.
       actions: read   # To read the workflow path.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/builder_go_slsa3.yml@v1.10.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/builder_go_slsa3.yml@v2.1.0
     needs: [pre-release-checks, code-quality, security-scan]
     with:
       go-version: ${{ env.GO_VERSION }}
