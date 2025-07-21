@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go/speech v1.28.0
 	cloud.google.com/go/storage v1.55.0
 	github.com/spf13/cobra v1.9.1
-	google.golang.org/api v0.241.0
+	google.golang.org/api v0.242.0
 )
 
 require (
