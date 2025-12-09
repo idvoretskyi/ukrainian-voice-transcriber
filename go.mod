@@ -1,6 +1,6 @@
 module github.com/idvoretskyi/ukrainian-voice-transcriber
 
-go 1.24
+go 1.25
 
 require (
 	cloud.google.com/go/speech v1.28.0

@@ -22,7 +22,7 @@ Single-binary Ukrainian video-to-text transcription using Google Cloud Speech-to
 brew install ffmpeg  # macOS
 sudo apt install ffmpeg  # Ubuntu
 
-# Install Go 1.24+
+# Install Go 1.25+
 brew install go  # macOS
 ```
 

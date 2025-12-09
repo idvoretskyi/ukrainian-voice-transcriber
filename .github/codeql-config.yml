@@ -1,0 +1,20 @@
+---
+name: CodeQL Configuration
+# CodeQL query configuration for enhanced security analysis
+# https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-a-codeql-configuration-file
+
+queries:
+  - uses: security-and-quality
+
+paths-ignore:
+  - tests/
+  - '**/*_test.go'
+  - vendor/
+  - .git/
+  - .github/
+  - docs/
+
+paths:
+  - internal/
+  - cmd/
+  - pkg/

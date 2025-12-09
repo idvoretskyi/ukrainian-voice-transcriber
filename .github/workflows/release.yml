@@ -35,7 +35,7 @@ permissions:
   security-events: write
 
 env:
-  GO_VERSION: '1.22'
+  GO_VERSION: '1.25'
 
 jobs:
   # Manual tag creation (only for workflow_dispatch)
@@ -230,7 +230,7 @@ jobs:
       slsa-framework/slsa-github-generator/.github/workflows/builder_go_slsa3.yml@v2.1.0
     needs: [pre-release-checks, code-quality, security-scan]
     with:
-      go-version: '1.22'
+      go-version: '1.25'
       config-file: .slsa-goreleaser.yml
       evaluated-envs: >-
         VERSION:${{ needs.pre-release-checks.outputs.version ||
