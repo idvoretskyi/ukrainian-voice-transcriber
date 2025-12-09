@@ -9,7 +9,7 @@ GIT_COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 BUILD_FLAGS=-ldflags="-w -s -X 'main.version=$(VERSION)' -X 'main.buildDate=$(BUILD_DATE)' -X 'main.gitCommit=$(GIT_COMMIT)'"
 
 # Go settings
-GO_VERSION ?= 1.24
+GO_VERSION ?= 1.25
 GOPATH ?= $(shell go env GOPATH)
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)

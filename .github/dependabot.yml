@@ -12,8 +12,6 @@ updates:
       day: "monday"
       time: "06:00"
     open-pull-requests-limit: 10
-    reviewers:
-      - "idvoretskyi"
     assignees:
       - "idvoretskyi"
     commit-message:
@@ -35,8 +33,6 @@ updates:
       day: "monday"
       time: "06:00"
     open-pull-requests-limit: 5
-    reviewers:
-      - "idvoretskyi"
     assignees:
       - "idvoretskyi"
     commit-message:
@@ -55,8 +51,6 @@ updates:
       day: "monday"
       time: "06:00"
     open-pull-requests-limit: 5
-    reviewers:
-      - "idvoretskyi"
     assignees:
       - "idvoretskyi"
     commit-message:

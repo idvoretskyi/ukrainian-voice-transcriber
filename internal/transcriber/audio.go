@@ -59,18 +59,8 @@ func extractAudio(videoPath string, cfg *config.Config) (string, error) {
 
 // validateAndSanitizeVideoPath validates and sanitizes the input video path.
 func validateAndSanitizeVideoPath(videoPath string) (string, error) {
-	// Validate and sanitize the input path
-	if filepath.IsAbs(videoPath) {
-		return "", fmt.Errorf("absolute paths not allowed")
-	}
-
 	// Use filepath.Clean to normalize the path
 	videoPath = filepath.Clean(videoPath)
-
-	// Ensure the path doesn't contain directory traversal
-	if strings.Contains(videoPath, "..") {
-		return "", fmt.Errorf("directory traversal not allowed")
-	}
 
 	// Validate file exists and is readable
 	fileInfo, err := os.Stat(videoPath)
@@ -84,19 +74,22 @@ func validateAndSanitizeVideoPath(videoPath string) (string, error) {
 	}
 
 	// Check file size (prevent processing extremely large files)
-	if fileInfo.Size() > 1024*1024*1024 { // 1GB limit
-		return "", fmt.Errorf("file too large (>1GB): %s", videoPath)
+	// 5GB limit should be sufficient for most video files
+	if fileInfo.Size() > 5*1024*1024*1024 {
+		return "", fmt.Errorf("file too large (>5GB): %s", videoPath)
 	}
 
 	return videoPath, nil
 }
 
-// generateAudioPath creates a unique audio file path based on the video path.
+// generateAudioPath creates a unique audio file path in the system temp directory.
 func generateAudioPath(videoPath string) string {
 	timestamp := time.Now().UnixNano()
 	baseFileName := strings.TrimSuffix(filepath.Base(videoPath), filepath.Ext(videoPath))
+	tempFileName := fmt.Sprintf("%s_%d_audio.wav", baseFileName, timestamp)
 
-	return fmt.Sprintf("%s_%d_audio.wav", baseFileName, timestamp)
+	// Use system temp directory instead of current directory
+	return filepath.Join(os.TempDir(), tempFileName)
 }
 
 // runFFmpegCommand executes FFmpeg command and verifies the output.

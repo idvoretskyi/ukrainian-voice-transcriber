@@ -1,5 +1,5 @@
 ---
-name: 'CodeQL Configuration'
+name: CodeQL Configuration
 # CodeQL query configuration for enhanced security analysis
 # https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-a-codeql-configuration-file
 

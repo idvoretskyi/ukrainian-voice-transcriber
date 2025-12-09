@@ -37,13 +37,13 @@ Features:
 
 Prerequisites:
 • FFmpeg installed (brew install ffmpeg / apt install ffmpeg)
-• Google Cloud service account JSON file in current directory
+• Google Cloud authentication (gcloud auth application-default login)
 • Enabled APIs: Speech-to-Text, Cloud Storage
 
 Examples:
-  ukrainian-voice-transcriber transcribe video.mp4
-  ukrainian-voice-transcriber transcribe video.mp4 -o transcript.txt
-  ukrainian-voice-transcriber transcribe video.mp4 --verbose
+  ukrainian-voice-transcriber transcribe input/video.mp4
+  ukrainian-voice-transcriber transcribe input/video.mp4 -o output.txt
+  ukrainian-voice-transcriber transcribe input/video.mp4 --verbose
   ukrainian-voice-transcriber version`, appName, buildVersion),
 	SilenceUsage: true,
 }
@@ -65,9 +65,11 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&globalConfig.BucketName, "bucket", "",
 		"Google Cloud Storage bucket name (default: ukr-voice-transcriber-temp)")
 
+	// Speech-to-Text model selection
+	rootCmd.PersistentFlags().StringVar(&globalConfig.STTModel, "model", "default",
+		"Speech-to-Text model: 'default' (supports Ukrainian), 'latest_long', or 'latest_short'")
+
 	// Add subcommands
-	rootCmd.AddCommand(authCmd)
 	rootCmd.AddCommand(transcribeCmd)
-	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(versionCmd)
 }

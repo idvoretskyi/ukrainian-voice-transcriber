@@ -1,102 +1,48 @@
 # Binaries
 ukrainian-voice-transcriber
 transcriber
-ukrainian-voice-transcriber-*
 *.exe
 
-# Go build artifacts
+# Build artifacts
+dist/
 *.out
 *.test
-vendor/
 coverage.out
 coverage.html
-*.sarif
 
-# Build directories
-dist/
-build/
-release/
-
-# Temporary scripts
-fix-headers.sh
-
-# Authentication & Credentials
-service-account.json
-service_account.json
-gcloud-key.json
-key.json
-credentials.json
-client_secret.json
-token.pickle
-.transcriber-token.json
-
-# Private keys & certificates
-*.key
-*.pem
-*.p12
-*.pfx
-
-# Environment files
-.env
-.env.local
-.env.production
-
-# Video/Audio files
+# Video/Audio files (inputs and temps)
 *.mp4
 *.avi
 *.mov
 *.mkv
 *.webm
-*.wmv
 *.wav
 *.mp3
-*.m4a
-*.flv
+*_audio.wav
 
-# Transcription outputs
-transcript*.txt
-output*.txt
-result*.txt
-*_transcript.txt
+# Output directory (transcripts)
+output/
 
-# Temporary files
-*.tmp
-*.temp
-temp/
-tmp/
+# Input directory content (keep structure)
+input/*
+!input/.gitkeep
 
-# Logs
-*.log
-logs/
+# Credentials
+service-account.json
+credentials.json
+*.key
+*.pem
 
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# macOS
-.DS_Store
-
-# Windows
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-
-# Linux
-*~
-
-# Environment files
+# Environment
 .env
 .env.local
 
-# Test files
-example.mp4
-test_video.*
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
 
-# Claude AI files
-.claude/
-.claude-*
-claude-*
-.anthropic/
+# OS
+.DS_Store
+Thumbs.db

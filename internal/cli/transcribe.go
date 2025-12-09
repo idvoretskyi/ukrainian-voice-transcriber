@@ -70,46 +70,39 @@ var transcribeCmd = &cobra.Command{
 			fmt.Println(strings.Repeat("-", 50))
 		}
 
-		// Create directory based on video filename and save transcript
+		// Determine output path
+		var transcriptPath string
 		if outputFile != "" {
-			// Ensure the directory for the output file exists
-			outputDir := filepath.Dir(outputFile)
-			if outputDir != "." && outputDir != "" {
-				if err := os.MkdirAll(outputDir, 0o750); err != nil {
-					return fmt.Errorf("failed to create directory for output file: %v", err)
-				}
-			}
-
-			// Use secure file permissions (0600 = rw-------)
-			if err := os.WriteFile(outputFile, []byte(result.Text), 0o600); err != nil {
-				return fmt.Errorf("failed to save transcript: %v", err)
-			}
-			if !globalConfig.Quiet {
-				fmt.Printf("✅ Transcript saved to: %s\n", outputFile)
-			}
+			// User specified output file
+			transcriptPath = outputFile
 		} else {
-			// Create directory based on video filename
+			// Create path in output/ directory based on video filename
 			videoBaseName := filepath.Base(videoFile)
 			videoNameWithoutExt := strings.TrimSuffix(videoBaseName, filepath.Ext(videoBaseName))
 
-			// Sanitize directory name: replace spaces with underscores and remove special characters
-			dirName := sanitizeFilename(videoNameWithoutExt)
+			// Sanitize filename: replace spaces with underscores and remove special characters
+			sanitizedName := sanitizeFilename(videoNameWithoutExt)
 
-			// Create directory with secure permissions (0750 = rwxr-x---)
-			if err := os.MkdirAll(dirName, 0o750); err != nil {
-				return fmt.Errorf("failed to create directory %s: %v", dirName, err)
-			}
+			// Create output subdirectory: output/<sanitized-name>/
+			outputSubDir := filepath.Join("output", sanitizedName)
 
-			// Save transcript to file in the new directory with sanitized filename
-			transcriptPath := filepath.Join(dirName, dirName+".txt")
-			// Use secure file permissions (0600 = rw-------)
-			if err := os.WriteFile(transcriptPath, []byte(result.Text), 0o600); err != nil {
-				return fmt.Errorf("failed to save transcript: %v", err)
-			}
+			// Create the full output path
+			transcriptPath = filepath.Join(outputSubDir, sanitizedName+".txt")
+		}
 
-			if !globalConfig.Quiet {
-				fmt.Printf("✅ Transcript saved to: %s\n", transcriptPath)
-			}
+		// Ensure the directory for the output file exists
+		outputDir := filepath.Dir(transcriptPath)
+		if err := os.MkdirAll(outputDir, 0o750); err != nil {
+			return fmt.Errorf("failed to create output directory: %v", err)
+		}
+
+		// Save transcript with secure file permissions (0600 = rw-------)
+		if err := os.WriteFile(transcriptPath, []byte(result.Text), 0o600); err != nil {
+			return fmt.Errorf("failed to save transcript: %v", err)
+		}
+
+		if !globalConfig.Quiet {
+			fmt.Printf("✅ Transcript saved to: %s\n", transcriptPath)
 		}
 
 		return nil
