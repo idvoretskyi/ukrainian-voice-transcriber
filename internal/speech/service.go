@@ -66,7 +66,11 @@ func (s *Service) Close() error {
 }
 
 // transcribeLongRunning handles long-running transcription.
-func (s *Service) transcribeLongRunning(ctx context.Context, gcsURI string, config *speechpb.RecognitionConfig) (string, error) {
+func (s *Service) transcribeLongRunning(
+	ctx context.Context,
+	gcsURI string,
+	config *speechpb.RecognitionConfig,
+) (string, error) {
 	if !s.config.Quiet {
 		fmt.Println("ℹ️  Using long-running recognition...")
 	}
