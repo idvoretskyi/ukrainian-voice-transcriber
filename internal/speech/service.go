@@ -31,61 +31,48 @@ func NewService(client *speechapi.Client, cfg *config.Config) *Service {
 	}
 }
 
-// TranscribeAudio transcribes audio using Google Cloud Speech-to-Text.
-func (s *Service) TranscribeAudio(ctx context.Context, gcsURI string) (string, error) {
+// TranscribeFromGCS transcribes audio from Google Cloud Storage URI.
+func (s *Service) TranscribeFromGCS(ctx context.Context, gcsURI string) (string, error) {
 	if !s.config.Quiet {
 		fmt.Println("ℹ️  Starting transcription...")
 	}
 
-	// Create recognition request
-	req := &speechpb.RecognizeRequest{
-		Config: &speechpb.RecognitionConfig{
-			Encoding:                   speechpb.RecognitionConfig_LINEAR16,
-			SampleRateHertz:            16000,
-			LanguageCode:               "uk-UA",   // Ukrainian
-			Model:                      "default", // Cost-efficient standard model
-			EnableAutomaticPunctuation: true,
-			UseEnhanced:                false, // Keep costs down
-		},
-		Audio: &speechpb.RecognitionAudio{
-			AudioSource: &speechpb.RecognitionAudio_Uri{
-				Uri: gcsURI,
-			},
-		},
+	// Determine model to use
+	// Note: 'video' and 'phone_call' models don't support Ukrainian (uk-UA)
+	// Using 'default' model which supports all languages
+	model := s.config.STTModel
+	if model == "" || model == "video" {
+		model = "default"
 	}
 
-	// Try synchronous recognition first
-	resp, err := s.client.Recognize(ctx, req)
-	if err != nil {
-		// Try long-running recognition for longer audio
-		return s.transcribeLongRunning(ctx, gcsURI)
+	// Create recognition config
+	config := &speechpb.RecognitionConfig{
+		Encoding:                   speechpb.RecognitionConfig_LINEAR16,
+		SampleRateHertz:            16000,
+		LanguageCode:               "uk-UA",
+		Model:                      model,
+		EnableAutomaticPunctuation: true,
+		UseEnhanced:                false, // Enhanced models don't support Ukrainian
 	}
 
-	// Extract transcript
-	transcript := s.extractTranscript(resp.Results)
+	// Use long-running recognition for all audio (handles both short and long files)
+	return s.transcribeLongRunning(ctx, gcsURI, config)
+}
 
-	if !s.config.Quiet {
-		fmt.Printf("ℹ️  Transcription completed: %d characters\n", len(transcript))
-	}
-
-	return transcript, nil
+// Close closes the speech client (no-op since client is managed externally).
+func (s *Service) Close() error {
+	// Client is closed by the transcriber
+	return nil
 }
 
 // transcribeLongRunning handles long-running transcription.
-func (s *Service) transcribeLongRunning(ctx context.Context, gcsURI string) (string, error) {
+func (s *Service) transcribeLongRunning(ctx context.Context, gcsURI string, config *speechpb.RecognitionConfig) (string, error) {
 	if !s.config.Quiet {
 		fmt.Println("ℹ️  Using long-running recognition...")
 	}
 
 	req := &speechpb.LongRunningRecognizeRequest{
-		Config: &speechpb.RecognitionConfig{
-			Encoding:                   speechpb.RecognitionConfig_LINEAR16,
-			SampleRateHertz:            16000,
-			LanguageCode:               "uk-UA",
-			Model:                      "default",
-			EnableAutomaticPunctuation: true,
-			UseEnhanced:                false,
-		},
+		Config: config,
 		Audio: &speechpb.RecognitionAudio{
 			AudioSource: &speechpb.RecognitionAudio_Uri{
 				Uri: gcsURI,

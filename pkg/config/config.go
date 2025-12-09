@@ -17,6 +17,9 @@ type Config struct {
 	BucketName         string
 	Verbose            bool
 	Quiet              bool
+
+	// Speech-to-Text model selection
+	STTModel string // e.g., "video", "phone_call", "latest_long", "latest_short"
 }
 
 // FindServiceAccount looks for Google Cloud service account key.

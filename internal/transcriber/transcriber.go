@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -59,8 +58,8 @@ func getProjectIDFromGcloud() (string, error) {
 	// Use only fixed arguments to avoid command injection
 	cmd := exec.CommandContext(ctx, gcloudPath, "config", "get-value", "project") // #nosec G204 gcloudPath is validated
 
-	// Restrict command execution environment
-	cmd.Env = []string{"PATH=" + filepath.Dir(gcloudPath)}
+	// Use current environment to ensure gcloud has access to required tools
+	cmd.Env = os.Environ()
 
 	// Capture both stdout and stderr
 	var stdout, stderr strings.Builder
@@ -92,6 +91,15 @@ func New(cfg *config.Config) (*Transcriber, error) {
 
 	// Set default bucket name if not provided
 	setBucketName(cfg, projectID)
+
+	// Set default Speech-to-Text model if not specified
+	if cfg.STTModel == "" {
+		cfg.STTModel = "video"
+	}
+
+	if !cfg.Quiet {
+		fmt.Printf("ℹ️  Using Google Cloud Speech-to-Text (Model: %s)\n", cfg.STTModel)
+	}
 
 	// Initialize services
 	speechService := speech.NewService(speechClient, cfg)
@@ -237,8 +245,9 @@ func (t *Transcriber) TranscribeLocalFile(videoPath string) *TranscriptionResult
 
 	t.logInfo(fmt.Sprintf("Processing: %s", videoPath))
 
-	// Create a context with timeout for the entire operation (30 minutes)
-	ctx, cancel := context.WithTimeout(t.ctx, 30*time.Minute)
+	// Create a context with timeout for the entire operation (3 hours)
+	// Allows time for audio extraction, upload, and long transcriptions
+	ctx, cancel := context.WithTimeout(t.ctx, 180*time.Minute)
 	defer cancel()
 
 	// Process audio (extract and upload)
@@ -322,12 +331,13 @@ func (t *Transcriber) processAudio(ctx context.Context, videoPath string) (strin
 
 // performTranscription executes the transcription process.
 func (t *Transcriber) performTranscription(ctx context.Context, gcsURI string) (string, error) {
-	// Create a context with timeout for transcription (20 minutes)
-	transcribeCtx, transcribeCancel := context.WithTimeout(ctx, 20*time.Minute)
+	// Create a context with timeout for transcription (2 hours for long audio files)
+	// Speech-to-Text API can take significant time for lengthy recordings
+	transcribeCtx, transcribeCancel := context.WithTimeout(ctx, 120*time.Minute)
 	defer transcribeCancel()
 
-	// Transcribe
-	transcript, err := t.speechService.TranscribeAudio(transcribeCtx, gcsURI)
+	// Transcribe using Speech-to-Text
+	transcript, err := t.speechService.TranscribeFromGCS(transcribeCtx, gcsURI)
 	if err != nil {
 		return "", fmt.Errorf("transcription failed: %v", err)
 	}

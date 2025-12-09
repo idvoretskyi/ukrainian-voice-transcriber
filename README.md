@@ -1,17 +1,17 @@
 # Ukrainian Voice Transcriber
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![CI](https://github.com/idvoretskyi/ukrainian-voice-transcriber/actions/workflows/ci.yml/badge.svg)](https://github.com/idvoretskyi/ukrainian-voice-transcriber/actions)
-
 Single-binary Ukrainian video-to-text transcription using Google Cloud Speech-to-Text API.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Features
 
 - Ukrainian language optimized (`uk-UA` locale)
-- Single binary deployment (no dependencies)
-- Cost-efficient with auto-cleanup
+- Single binary - no dependencies
 - FFmpeg integration for video processing
-- Simple authentication via gcloud CLI
+- Clean directory structure: `input/` → `output/`
+- Simple gcloud authentication
+- Auto-cleanup of temporary files
 
 ## Quick Start
 
@@ -51,51 +51,66 @@ gcloud services enable speech.googleapis.com storage.googleapis.com
 ### Usage
 
 ```bash
-# Basic transcription
-transcriber transcribe video.mp4
+# Basic transcription (output goes to output/<video-name>/<video-name>.txt)
+transcriber transcribe input/video.mp4
+
+# Use different Speech-to-Text model
+transcriber transcribe input/video.mp4 --model=latest_long
 
 # Save to specific file
-transcriber transcribe video.mp4 -o transcript.txt
+transcriber transcribe input/video.mp4 -o custom-output.txt
 
-# Check setup
-transcriber setup
+# Verbose mode (show detailed progress)
+transcriber transcribe input/video.mp4 --verbose
 ```
-
-## Documentation
-
-- 📖 [English User Manual](docs/USER_MANUAL_EN.md)
-- 📖 [Ukrainian User Manual](docs/USER_MANUAL_UK.md)
 
 ## CLI Commands
 
 ```bash
 # Main commands
-transcriber transcribe video.mp4 [-o output.txt] [--verbose|--quiet]
-transcriber auth [--status]
-transcriber setup
+transcriber transcribe <video-file> [-o output.txt] [--verbose|--quiet]
+transcriber transcribe <video-file> [--model default|latest_long|latest_short]
 transcriber version
+```
+
+## Directory Structure
+
+```
+ukrainian-voice-transcriber/
+├── input/              # Place your video files here
+│   └── video.mp4
+├── output/             # Transcripts are automatically saved here
+│   └── video/
+│       └── video.txt
+└── ukrainian-voice-transcriber  # The binary
 ```
 
 ## Examples
 
 ```bash
-# Basic usage
-transcriber transcribe meeting.mp4
+# Basic usage - transcribe a video file
+transcriber transcribe input/meeting.mp4
+# Output: output/meeting/meeting.txt
 
-# Batch processing
-for video in *.mp4; do
+# Use latest_long model for very long audio files
+transcriber transcribe input/interview.mp4 --model=latest_long
+
+# Batch processing - transcribe all videos in input/
+for video in input/*.mp4; do
     transcriber transcribe "$video"
 done
+
+# Save to custom location
+transcriber transcribe input/presentation.mp4 -o transcripts/my-transcript.txt
 ```
 
 ## Troubleshooting
 
 **FFmpeg not found**: `brew install ffmpeg` or `sudo apt install ffmpeg`
 
-**Authentication required**: Run `transcriber auth --status` and follow setup instructions
+**Authentication error**: Run `gcloud auth application-default login`
 
 **Permission denied**: Make sure `$GOPATH/bin` is in your `$PATH`
-.
 
 ## Building
 
@@ -111,4 +126,4 @@ MIT License - see LICENSE file for details.
 
 ---
 
-🇺🇦 Made with ❤️ for Ukrainian content creators
+Made for Ukrainian content creators
