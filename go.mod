@@ -3,7 +3,7 @@ module github.com/idvoretskyi/ukrainian-voice-transcriber
 go 1.25
 
 require (
-	cloud.google.com/go/speech v1.28.0
+	cloud.google.com/go/speech v1.29.0
 	cloud.google.com/go/storage v1.58.0
 	github.com/spf13/cobra v1.10.2
 	google.golang.org/api v0.256.0
