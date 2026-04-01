@@ -95,7 +95,7 @@ func generateAudioPath(videoPath string) string {
 // runFFmpegCommand executes FFmpeg command and verifies the output.
 func runFFmpegCommand(ctx context.Context, ffmpegPath, videoPath, audioPath string, cfg *config.Config) error {
 	// Run FFmpeg command with context for timeout
-	cmd := exec.CommandContext(ctx, ffmpegPath,
+	cmd := exec.CommandContext(ctx, ffmpegPath, // #nosec G204 -- ffmpegPath is resolved via exec.LookPath("ffmpeg")
 		"-i", videoPath,
 		"-acodec", "pcm_s16le",
 		"-ar", "16000",

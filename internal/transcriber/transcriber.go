@@ -152,13 +152,20 @@ func initializeWithServiceAccount(ctx context.Context, cfg *config.Config) (
 
 	cfg.ServiceAccountPath = serviceAccountPath
 
+	credsJSON, err := os.ReadFile(serviceAccountPath)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to read service account file: %v", err)
+	}
+
+	clientOpt := option.WithCredentialsJSON(credsJSON)
+
 	// Initialize Google Cloud clients with service account
-	speechClient, err = speechapi.NewClient(ctx, option.WithCredentialsFile(serviceAccountPath))
+	speechClient, err = speechapi.NewClient(ctx, clientOpt)
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("failed to create speech client: %v", err)
 	}
 
-	storageClient, err = storageapi.NewClient(ctx, option.WithCredentialsFile(serviceAccountPath))
+	storageClient, err = storageapi.NewClient(ctx, clientOpt)
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("failed to create storage client: %v", err)
 	}
