@@ -7,6 +7,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,6 +21,10 @@ import (
 
 var outputFile string
 
+// sanitizeRe matches characters not allowed in a sanitized filename.
+// \p{L} matches any Unicode letter (including Cyrillic), \p{N} any Unicode digit.
+var sanitizeRe = regexp.MustCompile(`[^\p{L}\p{N}_\-.]`)
+
 // transcribeCmd represents the transcribe command.
 var transcribeCmd = &cobra.Command{
 	Use:   "transcribe [video-file]",
@@ -28,25 +33,10 @@ var transcribeCmd = &cobra.Command{
 	RunE: func(_ *cobra.Command, args []string) error {
 		videoFile := args[0]
 
-		// Validate input file exists and is accessible
-		fileInfo, err := os.Stat(videoFile)
-		if err != nil {
-			if os.IsNotExist(err) {
-				return fmt.Errorf("video file not found: %s", videoFile)
-			}
-
-			return fmt.Errorf("cannot access video file: %v", err)
-		}
-
-		// Check if it's a regular file (not a directory or device)
-		if !fileInfo.Mode().IsRegular() {
-			return fmt.Errorf("not a regular file: %s", videoFile)
-		}
-
 		// Initialize transcriber
 		t, err := transcriber.New(&globalConfig)
 		if err != nil {
-			return fmt.Errorf("initialization failed: %v", err)
+			return fmt.Errorf("initialization failed: %w", err)
 		}
 
 		defer func() {
@@ -55,8 +45,8 @@ var transcribeCmd = &cobra.Command{
 			}
 		}()
 
-		// Transcribe file
-		result := t.TranscribeLocalFile(videoFile)
+		// Transcribe file (input validation is performed inside TranscribeLocalFile)
+		result := t.TranscribeLocalFile(context.Background(), videoFile)
 
 		if !result.Success {
 			return fmt.Errorf("transcription failed: %s", result.Error)
@@ -94,12 +84,12 @@ var transcribeCmd = &cobra.Command{
 		// Ensure the directory for the output file exists
 		outputDir := filepath.Dir(transcriptPath)
 		if err := os.MkdirAll(outputDir, 0o750); err != nil {
-			return fmt.Errorf("failed to create output directory: %v", err)
+			return fmt.Errorf("failed to create output directory: %w", err)
 		}
 
 		// Save transcript with secure file permissions (0600 = rw-------)
 		if err := os.WriteFile(transcriptPath, []byte(result.Text), 0o600); err != nil {
-			return fmt.Errorf("failed to save transcript: %v", err)
+			return fmt.Errorf("failed to save transcript: %w", err)
 		}
 
 		if !globalConfig.Quiet {
@@ -112,13 +102,13 @@ var transcribeCmd = &cobra.Command{
 
 // sanitizeFilename removes special characters and replaces spaces with underscores
 // to create a safe filename for use in the filesystem.
+// Preserves Unicode letters (including Cyrillic) for Ukrainian filenames.
 func sanitizeFilename(filename string) string {
 	// Replace spaces with underscores
 	filename = strings.ReplaceAll(filename, " ", "_")
 
-	// Remove any character that's not alphanumeric, underscore, hyphen, or period
-	reg := regexp.MustCompile(`[^a-zA-Z0-9_\-.]`)
-	filename = reg.ReplaceAllString(filename, "")
+	// Remove any character that's not Unicode letter, digit, underscore, hyphen, or period
+	filename = sanitizeRe.ReplaceAllString(filename, "")
 
 	// Ensure the filename is not empty
 	if filename == "" {

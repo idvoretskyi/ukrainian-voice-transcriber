@@ -36,5 +36,9 @@ linters:
     - decorder
     - gocognit
     - goheader
-
+  settings:
+    funlen:
+      # Table-driven test functions are legitimately long; raise threshold.
+      lines: 100
+      statements: 80
 
