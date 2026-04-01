@@ -155,13 +155,19 @@ func initializeWithServiceAccount(ctx context.Context, cfg *config.Config) (
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("invalid service account path: %v", err)
 	}
+
 	if filepath.Base(absPath) != "service-account.json" {
 		return nil, nil, "", fmt.Errorf("unexpected service account filename: %s", filepath.Base(absPath))
 	}
 
 	cfg.ServiceAccountPath = absPath
 
-	clientOpt := option.WithCredentialsFile(absPath)
+	credsJSON, err := os.ReadFile(absPath) // #nosec G304 -- path is validated above
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to read service account file: %v", err)
+	}
+
+	clientOpt := option.WithCredentialsJSON(credsJSON)
 
 	// Initialize Google Cloud clients with service account
 	speechClient, err = speechapi.NewClient(ctx, clientOpt)
