@@ -37,11 +37,11 @@ func (s *Service) TranscribeFromGCS(ctx context.Context, gcsURI string) (string,
 		fmt.Println("ℹ️  Starting transcription...")
 	}
 
-	// Determine model to use
-	// Note: 'video' and 'phone_call' models don't support Ukrainian (uk-UA)
-	// Using 'default' model which supports all languages
+	// Determine model to use.
+	// Note: 'video' and 'phone_call' models don't support Ukrainian (uk-UA);
+	// fall back to 'default' which supports all languages.
 	model := s.config.STTModel
-	if model == "" || model == "video" {
+	if model == "" {
 		model = "default"
 	}
 
@@ -86,7 +86,7 @@ func (s *Service) transcribeLongRunning(
 
 	op, err := s.client.LongRunningRecognize(ctx, req)
 	if err != nil {
-		return "", fmt.Errorf("long-running recognition failed: %v", err)
+		return "", fmt.Errorf("long-running recognition failed: %w", err)
 	}
 
 	if !s.config.Quiet {
@@ -95,7 +95,7 @@ func (s *Service) transcribeLongRunning(
 
 	resp, err := op.Wait(ctx)
 	if err != nil {
-		return "", fmt.Errorf("transcription operation failed: %v", err)
+		return "", fmt.Errorf("transcription operation failed: %w", err)
 	}
 
 	transcript := s.extractTranscript(resp.Results)

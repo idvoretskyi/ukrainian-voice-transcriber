@@ -65,7 +65,7 @@ func validateAndSanitizeVideoPath(videoPath string) (string, error) {
 	// Validate file exists and is readable
 	fileInfo, err := os.Stat(videoPath)
 	if err != nil {
-		return "", fmt.Errorf("input file error: %v", err)
+		return "", fmt.Errorf("input file error: %w", err)
 	}
 
 	// Check if it's a regular file
@@ -119,7 +119,7 @@ func runFFmpegCommand(ctx context.Context, ffmpegPath, videoPath, audioPath stri
 
 	// Verify the output file was created
 	if _, err := os.Stat(audioPath); err != nil {
-		return fmt.Errorf("FFmpeg did not create output file: %v", err)
+		return fmt.Errorf("FFmpeg did not create output file: %w", err)
 	}
 
 	return nil

@@ -60,7 +60,7 @@ func (s *Service) EnsureBucket(ctx context.Context) error {
 			},
 		},
 	}); err != nil {
-		return fmt.Errorf("failed to create bucket: %v", err)
+		return fmt.Errorf("failed to create bucket: %w", err)
 	}
 
 	return nil
@@ -80,7 +80,7 @@ func (s *Service) UploadFile(ctx context.Context, filePath string) (string, erro
 	// Open local file
 	file, err := os.Open(filePath) // #nosec G304 File path is validated by caller
 	if err != nil {
-		return "", fmt.Errorf("failed to open file: %v", err)
+		return "", fmt.Errorf("failed to open file: %w", err)
 	}
 
 	defer func() {
@@ -94,11 +94,11 @@ func (s *Service) UploadFile(ctx context.Context, filePath string) (string, erro
 	// Upload to GCS
 	writer := obj.NewWriter(ctx)
 	if _, err := io.Copy(writer, file); err != nil {
-		return "", fmt.Errorf("failed to upload file: %v", err)
+		return "", fmt.Errorf("failed to upload file: %w", err)
 	}
 
 	if err := writer.Close(); err != nil {
-		return "", fmt.Errorf("failed to close writer: %v", err)
+		return "", fmt.Errorf("failed to close writer: %w", err)
 	}
 
 	gcsURI := fmt.Sprintf("gs://%s/%s", s.config.BucketName, fileName)
@@ -112,24 +112,23 @@ func (s *Service) UploadFile(ctx context.Context, filePath string) (string, erro
 
 // CleanupFile removes file from Google Cloud Storage.
 func (s *Service) CleanupFile(ctx context.Context, gcsURI string) {
-	// Extract object name from URI
-	parts := strings.Split(gcsURI, "/")
-	if len(parts) < 4 {
+	// Extract object name from URI: gs://<bucket>/<object>
+	// Use TrimPrefix so object names containing "/" are handled correctly.
+	prefix := fmt.Sprintf("gs://%s/", s.config.BucketName)
+
+	objectName := strings.TrimPrefix(gcsURI, prefix)
+	if objectName == gcsURI || objectName == "" {
+		// URI did not start with the expected prefix — skip silently.
 		return
 	}
-
-	objectName := parts[len(parts)-1]
 
 	bucket := s.client.Bucket(s.config.BucketName)
 	obj := bucket.Object(objectName)
 
 	if err := obj.Delete(ctx); err != nil {
-		if s.config.Verbose && !s.config.Quiet {
-			fmt.Printf("🔍 Failed to cleanup %s: %v\n", objectName, err)
-		}
-	} else {
-		if s.config.Verbose && !s.config.Quiet {
-			fmt.Printf("🔍 Cleaned up: %s\n", objectName)
-		}
+		// Always surface cleanup failures to stderr: orphaned GCS objects have cost impact.
+		fmt.Fprintf(os.Stderr, "Warning: Failed to cleanup GCS object %s: %v\n", objectName, err)
+	} else if s.config.Verbose && !s.config.Quiet {
+		fmt.Printf("🔍 Cleaned up: %s\n", objectName)
 	}
 }
