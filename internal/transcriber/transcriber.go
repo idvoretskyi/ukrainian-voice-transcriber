@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -150,14 +151,17 @@ func initializeWithServiceAccount(ctx context.Context, cfg *config.Config) (
 			"3. OAuth setup:\n   ukrainian-voice-transcriber auth")
 	}
 
-	cfg.ServiceAccountPath = serviceAccountPath
-
-	credsJSON, err := os.ReadFile(serviceAccountPath)
+	absPath, err := filepath.Abs(serviceAccountPath)
 	if err != nil {
-		return nil, nil, "", fmt.Errorf("failed to read service account file: %v", err)
+		return nil, nil, "", fmt.Errorf("invalid service account path: %v", err)
+	}
+	if filepath.Base(absPath) != "service-account.json" {
+		return nil, nil, "", fmt.Errorf("unexpected service account filename: %s", filepath.Base(absPath))
 	}
 
-	clientOpt := option.WithCredentialsJSON(credsJSON)
+	cfg.ServiceAccountPath = absPath
+
+	clientOpt := option.WithCredentialsFile(absPath)
 
 	// Initialize Google Cloud clients with service account
 	speechClient, err = speechapi.NewClient(ctx, clientOpt)
