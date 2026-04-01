@@ -48,6 +48,7 @@ var transcribeCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("initialization failed: %v", err)
 		}
+
 		defer func() {
 			if closeErr := t.Close(); closeErr != nil {
 				_, _ = fmt.Fprintf(os.Stderr, "Warning: Failed to close transcriber: %v\n", closeErr)
