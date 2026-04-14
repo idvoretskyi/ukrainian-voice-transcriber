@@ -15,7 +15,7 @@ permissions:
   pull-requests: write
 
 env:
-  GO_VERSION: '1.25'
+  GO_VERSION: '1.26'
 
 jobs:
   # Combined security analysis with matrix strategy
@@ -51,7 +51,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: ${{ env.GO_VERSION }}
+        go-version-file: go.mod
 
     - name: Install security tools
       run: |
@@ -117,7 +117,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: ${{ env.GO_VERSION }}
+        go-version-file: go.mod
 
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v4
