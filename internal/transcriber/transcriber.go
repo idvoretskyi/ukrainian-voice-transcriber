@@ -1,4 +1,4 @@
-// Ukrainian Voice Transcriber
+// Voice Transcriber
 // Copyright (c) 2025 Ihor Dvoretskyi
 //
 // Licensed under MIT License
@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/idvoretskyi/ukrainian-voice-transcriber/internal/gemini"
-	"github.com/idvoretskyi/ukrainian-voice-transcriber/pkg/config"
+	"github.com/idvoretskyi/voice-transcriber/internal/gemini"
+	"github.com/idvoretskyi/voice-transcriber/pkg/config"
 )
 
 // TranscriptionResult represents the result of a transcription.

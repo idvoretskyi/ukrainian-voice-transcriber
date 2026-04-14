@@ -1,4 +1,4 @@
-// Ukrainian Voice Transcriber
+// Voice Transcriber
 // Copyright (c) 2025 Ihor Dvoretskyi
 //
 // Licensed under MIT License
@@ -13,7 +13,7 @@ import (
 
 	"cloud.google.com/go/vertexai/genai"
 
-	"github.com/idvoretskyi/ukrainian-voice-transcriber/pkg/config"
+	"github.com/idvoretskyi/voice-transcriber/pkg/config"
 )
 
 const (
@@ -24,13 +24,23 @@ const (
 
 	// DefaultLocation is the default Vertex AI region.
 	DefaultLocation = "us-central1"
+)
 
-	// transcriptionPrompt instructs the model to perform verbatim transcription.
-	transcriptionPrompt = `Transcribe the following audio recording verbatim in Ukrainian.
+// buildPrompt returns the transcription prompt for the given language.
+// When language is "auto" or empty, Gemini detects the language automatically.
+// Otherwise language should be an ISO 639-1 code (e.g. "uk", "en", "de").
+func buildPrompt(language string) string {
+	const suffix = `
 Output only the transcription text with no commentary, labels, or metadata.
 Preserve natural sentence structure and add punctuation where appropriate.
 Do not translate, summarize, or modify the content in any way.`
-)
+
+	if language == "" || language == "auto" {
+		return "Transcribe the following audio recording verbatim in its original spoken language." + suffix
+	}
+
+	return "Transcribe the following audio recording verbatim in " + language + "." + suffix
+}
 
 // Service handles Gemini transcription via Vertex AI.
 type Service struct {
@@ -75,7 +85,7 @@ func (s *Service) TranscribeAudio(ctx context.Context, audioData []byte, mimeTyp
 	gm := s.client.GenerativeModel(model)
 
 	// Build the request: text prompt + audio blob
-	prompt := genai.Text(transcriptionPrompt)
+	prompt := genai.Text(buildPrompt(s.config.Language))
 	audioBlob := genai.Blob{
 		MIMEType: mimeType,
 		Data:     audioData,

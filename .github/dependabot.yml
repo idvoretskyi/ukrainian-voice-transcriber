@@ -1,4 +1,4 @@
-# Dependabot configuration for Ukrainian Voice Transcriber
+# Dependabot configuration for Voice Transcriber
 # Automatically keeps dependencies up to date
 # https://docs.github.com/en/code-security/dependabot
 
@@ -42,20 +42,3 @@ updates:
       - "dependencies"
       - "ci/cd"
       - "github-actions"
-
-  # Docker
-  - package-ecosystem: "docker"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-    open-pull-requests-limit: 5
-    assignees:
-      - "idvoretskyi"
-    commit-message:
-      prefix: "docker"
-      include: "scope"
-    labels:
-      - "dependencies"
-      - "component/docker"

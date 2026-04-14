@@ -164,12 +164,12 @@ jobs:
       - name: Run linter
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v1.56.2
+          version: latest
           args: --timeout=5m --verbose
 
       - name: Run Go security scanner
         run: |
-          go install github.com/securego/gosec/v2/cmd/gosec@v2.18.2
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
           echo "$HOME/go/bin" >> $GITHUB_PATH
           gosec -fmt sarif -out gosec-results.sarif ./...
 
@@ -199,7 +199,7 @@ jobs:
 
       - name: Run Go vulnerability check
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@v1.0.1
+          go install golang.org/x/vuln/cmd/govulncheck@latest
           echo "$HOME/go/bin" >> $GITHUB_PATH
           govulncheck ./...
 
@@ -221,7 +221,7 @@ jobs:
 
   # Build and release with SLSA
   build:
-    name: SLSA3 Build
+    name: SLSA3 Build (${{ matrix.os }}-${{ matrix.arch }})
     permissions:
       id-token: write  # To sign the provenance.
       contents: write  # To upload assets to release.
@@ -229,9 +229,13 @@ jobs:
     uses: >-
       slsa-framework/slsa-github-generator/.github/workflows/builder_go_slsa3.yml@v2.1.0
     needs: [pre-release-checks, code-quality, security-scan]
+    strategy:
+      matrix:
+        os: [linux, darwin]
+        arch: [amd64, arm64]
     with:
       go-version: '1.26'
-      config-file: .slsa-goreleaser.yml
+      config-file: .slsa-goreleaser/${{ matrix.os }}-${{ matrix.arch }}.yml
       evaluated-envs: >-
         VERSION:${{ needs.pre-release-checks.outputs.version ||
         github.ref_name }}
@@ -259,15 +263,15 @@ jobs:
           fi
 
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "release-name=Ukrainian Voice Transcriber ${VERSION}" >> \
+          echo "release-name=Voice Transcriber ${VERSION}" >> \
             $GITHUB_OUTPUT
           echo "prerelease=${PRERELEASE}" >> $GITHUB_OUTPUT
           echo "release-type=${RELEASE_TYPE}" >> $GITHUB_OUTPUT
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v3
         with:
-          name: ukrainian-voice-transcriber
+          name: voice-transcriber
           path: ./artifacts
 
       - name: Create GitHub Release
@@ -278,7 +282,7 @@ jobs:
           prerelease: ${{ steps.meta.outputs.prerelease }}
           generate_release_notes: true
           body: |
-            ## Ukrainian Voice Transcriber ${{ steps.meta.outputs.version }}
+            ## Voice Transcriber ${{ steps.meta.outputs.version }}
 
             🔒 **SLSA3 Compliant Release** - This release includes
             cryptographic provenance attestations for supply chain security.
@@ -289,32 +293,30 @@ jobs:
             ```bash
             # Linux/macOS
             VERSION=${{ steps.meta.outputs.version }}
-            curl -L -o ukrainian-voice-transcriber.tar.gz \
-              "https://github.com/idvoretskyi/ukrainian-voice-transcriber/releases/download/${VERSION}/ukrainian-voice-transcriber_linux_amd64.tar.gz"
-            tar -xzf ukrainian-voice-transcriber.tar.gz
-            chmod +x ukrainian-voice-transcriber
+            curl -L -o voice-transcriber \
+              "https://github.com/idvoretskyi/voice-transcriber/releases/download/${VERSION}/voice-transcriber-linux-amd64"
+            chmod +x voice-transcriber
             ```
 
             **Available Platforms:**
             - Linux (x64, ARM64)
             - macOS (Intel, Apple Silicon)
-            - Windows (x64)
 
             ### Setup
 
             1. Install FFmpeg: `brew install ffmpeg` (macOS) or
                `apt install ffmpeg` (Ubuntu)
             2. Set up authentication: `gcloud auth application-default login`
-            3. Run setup: `./ukrainian-voice-transcriber setup`
+            3. Set GCP project: `gcloud config set project YOUR_PROJECT_ID`
 
             ### Usage
 
             ```bash
-            # Basic transcription
-            ./ukrainian-voice-transcriber transcribe video.mp4
+            # Transcribe with automatic language detection (default)
+            ./voice-transcriber transcribe video.mp4
 
-            # Check authentication
-            ./ukrainian-voice-transcriber auth --status
+            # Specify language explicitly
+            ./voice-transcriber transcribe video.mp4 --language uk
             ```
 
             ### Security
@@ -326,15 +328,13 @@ jobs:
             slsa-verifier verify-artifact --provenance-path <provenance-file> \
               --source-uri github.com/${{ github.repository }} <binary>
             ```
-
-            🇺🇦 **Made with ❤️ for Ukrainian content creators**
           files: |
             ./artifacts/**/*
 
       - name: Generate release summary
         if: always()
         run: |
-          echo "## 🚀 SLSA3 Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## SLSA3 Release Summary" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** ${{ steps.meta.outputs.version }}" >> \
             $GITHUB_STEP_SUMMARY
           echo "**Release Name:** ${{ steps.meta.outputs.release-name }}" >> \
@@ -356,7 +356,7 @@ jobs:
             $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📦 Artifacts" >> $GITHUB_STEP_SUMMARY
-          echo "- Multi-platform binaries (Linux, macOS, Windows)" >> \
+          echo "- Multi-platform binaries (Linux, macOS)" >> \
             $GITHUB_STEP_SUMMARY
           echo "- Provenance files for each binary" >> $GITHUB_STEP_SUMMARY
           echo "- Checksums and signatures" >> $GITHUB_STEP_SUMMARY
@@ -368,8 +368,6 @@ jobs:
           echo "- [GitHub Release](${RELEASE_URL})" >> $GITHUB_STEP_SUMMARY
           echo "- [SLSA Framework](https://slsa.dev/)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "🇺🇦 Made with ❤️ for Ukrainian content creators" >> \
-            $GITHUB_STEP_SUMMARY
 
   # Post-release verification
   post-release:

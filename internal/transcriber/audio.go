@@ -1,4 +1,4 @@
-// Ukrainian Voice Transcriber
+// Voice Transcriber
 // Copyright (c) 2025 Ihor Dvoretskyi
 //
 // Licensed under MIT License
@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/idvoretskyi/ukrainian-voice-transcriber/pkg/config"
+	"github.com/idvoretskyi/voice-transcriber/pkg/config"
 )
 
 // InputType represents the kind of media file provided by the user.

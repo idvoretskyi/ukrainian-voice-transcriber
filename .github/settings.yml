@@ -3,16 +3,17 @@
 # https://github.com/repository-settings/app
 
 repository:
-  name: ukrainian-voice-transcriber
+  name: voice-transcriber
   description: >-
-    Single-binary Ukrainian media-to-text transcription powered by
-    Google Gemini via Vertex AI
-  homepage: https://github.com/idvoretskyi/ukrainian-voice-transcriber
+    Single-binary multilingual media-to-text transcription with automatic
+    language detection, powered by Google Gemini via Vertex AI
+  homepage: https://github.com/idvoretskyi/voice-transcriber
   topics:
     - go
     - golang
     - transcription
-    - ukrainian
+    - multilingual
+    - language-detection
     - gemini
     - vertex-ai
     - speech-to-text
@@ -97,8 +98,3 @@ labels:
   - name: github-actions
     color: '#000000'
     description: Pull requests that update GitHub Actions code
-
-  # --- Dependabot: docker ecosystem ---
-  - name: component/docker
-    color: '#0db7ed'
-    description: Docker related changes

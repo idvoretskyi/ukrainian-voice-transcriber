@@ -1,0 +1,14 @@
+version: 1
+env:
+  - CGO_ENABLED=0
+flags:
+  - -trimpath
+goos: darwin
+goarch: arm64
+main: ./cmd/transcriber
+binary: voice-transcriber-{{ .Os }}-{{ .Arch }}
+ldflags:
+  - "-w -s"
+  - "-X main.version={{ .Env.VERSION }}"
+  - "-X main.buildDate={{ .CommitDate }}"
+  - "-X main.gitCommit={{ .FullCommit }}"

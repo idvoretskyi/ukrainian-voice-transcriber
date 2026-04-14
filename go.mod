@@ -1,4 +1,4 @@
-module github.com/idvoretskyi/ukrainian-voice-transcriber
+module github.com/idvoretskyi/voice-transcriber
 
 go 1.26.0
 

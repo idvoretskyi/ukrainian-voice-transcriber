@@ -1,4 +1,4 @@
-// Ukrainian Voice Transcriber
+// Voice Transcriber
 // Copyright (c) 2025 Ihor Dvoretskyi
 //
 // Licensed under MIT License
@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/idvoretskyi/ukrainian-voice-transcriber/internal/transcriber"
+	"github.com/idvoretskyi/voice-transcriber/internal/transcriber"
 )
 
 func TestGenerateAudioPath(t *testing.T) {

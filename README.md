@@ -1,16 +1,17 @@
-# Ukrainian Voice Transcriber
+# Voice Transcriber
 
-Single-binary Ukrainian media-to-text transcription powered by Google Gemini via Vertex AI.
+Single-binary media-to-text transcription with automatic language detection, powered by Google Gemini via Vertex AI.
 
-[![CI](https://github.com/idvoretskyi/ukrainian-voice-transcriber/actions/workflows/ci.yml/badge.svg)](https://github.com/idvoretskyi/ukrainian-voice-transcriber/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/idvoretskyi/ukrainian-voice-transcriber/actions/workflows/codeql.yml/badge.svg)](https://github.com/idvoretskyi/ukrainian-voice-transcriber/actions/workflows/codeql.yml)
-[![Security](https://github.com/idvoretskyi/ukrainian-voice-transcriber/actions/workflows/security.yml/badge.svg)](https://github.com/idvoretskyi/ukrainian-voice-transcriber/actions/workflows/security.yml)
+[![CI](https://github.com/idvoretskyi/voice-transcriber/actions/workflows/ci.yml/badge.svg)](https://github.com/idvoretskyi/voice-transcriber/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/idvoretskyi/voice-transcriber/actions/workflows/codeql.yml/badge.svg)](https://github.com/idvoretskyi/voice-transcriber/actions/workflows/codeql.yml)
+[![Security](https://github.com/idvoretskyi/voice-transcriber/actions/workflows/security.yml/badge.svg)](https://github.com/idvoretskyi/voice-transcriber/actions/workflows/security.yml)
 [![Go version](https://img.shields.io/badge/go-1.26-00ADD8?logo=go)](https://go.dev/dl/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## Features
 
-- Ukrainian language optimized (`uk-UA`)
+- **Automatic language detection** — Gemini identifies the spoken language from audio (default)
+- Specify language explicitly with `--language` using an ISO 639-1 code (e.g. `uk`, `en`, `de`)
 - Accepts **audio and video files** as input
 - **No Cloud Storage required** — audio bytes sent inline to Gemini
 - FFmpeg used only for video-to-audio extraction; audio files go straight to Gemini
@@ -35,7 +36,7 @@ brew install ffmpeg        # macOS
 ### Install
 
 ```bash
-go install github.com/idvoretskyi/ukrainian-voice-transcriber/cmd/transcriber@latest
+go install github.com/idvoretskyi/voice-transcriber/cmd/transcriber@latest
 ```
 
 Ensure `$(go env GOPATH)/bin` is on your `$PATH`:
@@ -61,7 +62,7 @@ The project is also read from the `GOOGLE_CLOUD_PROJECT` environment variable if
 ### Usage
 
 ```bash
-# Transcribe a video file (audio extracted via FFmpeg automatically)
+# Transcribe a video file (language auto-detected, audio extracted via FFmpeg)
 transcriber transcribe input/meeting.mp4
 
 # Transcribe an audio file directly
@@ -69,6 +70,9 @@ transcriber transcribe input/interview.mp3
 
 # Specify output file
 transcriber transcribe input/meeting.mp4 -o transcript.txt
+
+# Force a specific language (ISO 639-1 code)
+transcriber transcribe input/meeting.mp4 --language uk
 
 # Use a different model or region
 transcriber transcribe input/meeting.mp4 --model gemini-2.5-flash --location europe-west4
@@ -85,6 +89,8 @@ Usage:
   transcriber version
 
 Flags:
+  --language string   Language for transcription: 'auto' for automatic detection,
+                      or ISO 639-1 code (e.g. uk, en, de) (default: auto)
   --model string      Gemini model to use
                       (default: gemini-3.1-flash-lite-preview)
   --location string   Vertex AI region
@@ -107,9 +113,9 @@ Extension matching is case-insensitive. Maximum file size: 10 GB.
 ## Building from Source
 
 ```bash
-git clone https://github.com/idvoretskyi/ukrainian-voice-transcriber.git
-cd ukrainian-voice-transcriber
-make build   # produces ./ukrainian-voice-transcriber
+git clone https://github.com/idvoretskyi/voice-transcriber.git
+cd voice-transcriber
+make build   # produces ./voice-transcriber
 make test    # run tests with race detector
 make lint    # run golangci-lint
 ```
