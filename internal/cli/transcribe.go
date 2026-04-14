@@ -27,11 +27,16 @@ var sanitizeRe = regexp.MustCompile(`[^\p{L}\p{N}_\-.]`)
 
 // transcribeCmd represents the transcribe command.
 var transcribeCmd = &cobra.Command{
-	Use:   "transcribe [video-file]",
-	Short: "Transcribe a video file to text",
-	Args:  cobra.ExactArgs(1),
+	Use:   "transcribe [media-file]",
+	Short: "Transcribe a video or audio file to text",
+	Long: `Transcribe a video or audio file to Ukrainian text using Google Gemini.
+
+Supported input formats:
+  Video: mp4, mkv, mov, avi, wmv, flv, ts, mpeg, 3gp (audio extracted via FFmpeg)
+  Audio: wav, mp3, flac, ogg, m4a, aac, webm (sent directly to Gemini, no FFmpeg needed)`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
-		videoFile := args[0]
+		mediaFile := args[0]
 
 		// Initialize transcriber
 		t, err := transcriber.New(&globalConfig)
@@ -46,7 +51,7 @@ var transcribeCmd = &cobra.Command{
 		}()
 
 		// Transcribe file (input validation is performed inside TranscribeLocalFile)
-		result := t.TranscribeLocalFile(context.Background(), videoFile)
+		result := t.TranscribeLocalFile(context.Background(), mediaFile)
 
 		if !result.Success {
 			return fmt.Errorf("transcription failed: %s", result.Error)
@@ -64,20 +69,15 @@ var transcribeCmd = &cobra.Command{
 		// Determine output path
 		var transcriptPath string
 		if outputFile != "" {
-			// User specified output file
 			transcriptPath = outputFile
 		} else {
-			// Create path in output/ directory based on video filename
-			videoBaseName := filepath.Base(videoFile)
-			videoNameWithoutExt := strings.TrimSuffix(videoBaseName, filepath.Ext(videoBaseName))
+			// Create path in output/ directory based on media filename
+			mediaBaseName := filepath.Base(mediaFile)
+			mediaNameWithoutExt := strings.TrimSuffix(mediaBaseName, filepath.Ext(mediaBaseName))
 
-			// Sanitize filename: replace spaces with underscores and remove special characters
-			sanitizedName := sanitizeFilename(videoNameWithoutExt)
+			sanitizedName := sanitizeFilename(mediaNameWithoutExt)
 
-			// Create output subdirectory: output/<sanitized-name>/
 			outputSubDir := filepath.Join("output", sanitizedName)
-
-			// Create the full output path
 			transcriptPath = filepath.Join(outputSubDir, sanitizedName+".txt")
 		}
 
@@ -104,13 +104,9 @@ var transcribeCmd = &cobra.Command{
 // to create a safe filename for use in the filesystem.
 // Preserves Unicode letters (including Cyrillic) for Ukrainian filenames.
 func sanitizeFilename(filename string) string {
-	// Replace spaces with underscores
 	filename = strings.ReplaceAll(filename, " ", "_")
-
-	// Remove any character that's not Unicode letter, digit, underscore, hyphen, or period
 	filename = sanitizeRe.ReplaceAllString(filename, "")
 
-	// Ensure the filename is not empty
 	if filename == "" {
 		return "transcript"
 	}
@@ -120,5 +116,5 @@ func sanitizeFilename(filename string) string {
 
 func init() {
 	transcribeCmd.Flags().StringVarP(&outputFile, "output", "o", "",
-		"Output file path (default: creates directory based on video filename)")
+		"Output file path (default: creates directory based on media filename)")
 }

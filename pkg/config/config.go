@@ -13,12 +13,12 @@ import (
 // Config holds application configuration.
 type Config struct {
 	ServiceAccountPath string
-	BucketName         string
 	Verbose            bool
 	Quiet              bool
 
-	// Speech-to-Text model selection
-	STTModel string // e.g., "default", "latest_long", "latest_short"
+	// Gemini model selection
+	GeminiModel string // e.g., "gemini-3.1-flash-lite-preview", "gemini-2.5-flash"
+	GCPLocation string // Vertex AI region, e.g., "us-central1"
 }
 
 // FindServiceAccount looks for Google Cloud service account key.

@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/idvoretskyi/ukrainian-voice-transcriber/internal/gemini"
 	"github.com/idvoretskyi/ukrainian-voice-transcriber/pkg/config"
 )
 
@@ -23,27 +24,31 @@ var globalConfig config.Config
 // rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
 	Use:   "ukrainian-voice-transcriber",
-	Short: "AI-powered Ukrainian video-to-text transcription",
+	Short: "AI-powered Ukrainian media-to-text transcription",
 	Long: fmt.Sprintf(`%s v%s
 
-Professional Ukrainian video-to-text transcription using Google Cloud Speech-to-Text API.
+Professional Ukrainian media-to-text transcription using Google Gemini via Vertex AI.
 
 Features:
-• Ukrainian language optimized (uk-UA locale)
-• Cost-efficient with automatic cleanup
-• Single binary - no dependencies to install
-• FFmpeg integration for audio extraction
-• Google Cloud Storage for temporary files
+• Ukrainian language optimized (uk-UA)
+• Accepts both video files (mp4, mkv, mov, ...) and audio files (wav, mp3, flac, ...)
+• No Google Cloud Storage required — audio sent inline to Gemini
+• FFmpeg used only for video-to-audio extraction
+• Cost-efficient: default model ~$0.03/hr of audio
+• Single binary - no extra runtime dependencies
 
 Prerequisites:
-• FFmpeg installed (brew install ffmpeg / apt install ffmpeg)
+• FFmpeg installed (brew install ffmpeg / apt install ffmpeg) — for video files only
 • Google Cloud authentication (gcloud auth application-default login)
-• Enabled APIs: Speech-to-Text, Cloud Storage
+• Vertex AI API enabled (gcloud services enable aiplatform.googleapis.com)
+• GCP project configured (gcloud config set project YOUR_PROJECT_ID)
 
 Examples:
   ukrainian-voice-transcriber transcribe input/video.mp4
+  ukrainian-voice-transcriber transcribe input/recording.wav
   ukrainian-voice-transcriber transcribe input/video.mp4 -o output.txt
   ukrainian-voice-transcriber transcribe input/video.mp4 --verbose
+  ukrainian-voice-transcriber transcribe input/video.mp4 --model gemini-2.5-flash
   ukrainian-voice-transcriber version`, appName, buildVersion),
 	SilenceUsage: true,
 }
@@ -62,12 +67,14 @@ func init() {
 	// Global flags
 	rootCmd.PersistentFlags().BoolVarP(&globalConfig.Verbose, "verbose", "v", false, "Enable verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&globalConfig.Quiet, "quiet", "q", false, "Suppress all output except results")
-	rootCmd.PersistentFlags().StringVar(&globalConfig.BucketName, "bucket", "",
-		"Google Cloud Storage bucket name (default: ukr-voice-transcriber-temp)")
 
-	// Speech-to-Text model selection
-	rootCmd.PersistentFlags().StringVar(&globalConfig.STTModel, "model", "default",
-		"Speech-to-Text model: 'default' (supports Ukrainian), 'latest_long', or 'latest_short'")
+	// Gemini model selection
+	rootCmd.PersistentFlags().StringVar(&globalConfig.GeminiModel, "model", gemini.DefaultModel,
+		"Gemini model to use for transcription (e.g. gemini-3.1-flash-lite-preview, gemini-2.5-flash, gemini-2.5-flash-lite)")
+
+	// Vertex AI region
+	rootCmd.PersistentFlags().StringVar(&globalConfig.GCPLocation, "location", gemini.DefaultLocation,
+		"Vertex AI region (e.g. us-central1, europe-west4)")
 
 	// Add subcommands
 	rootCmd.AddCommand(transcribeCmd)

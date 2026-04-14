@@ -12,78 +12,34 @@ import (
 	"testing"
 
 	"github.com/idvoretskyi/ukrainian-voice-transcriber/internal/transcriber"
-	"github.com/idvoretskyi/ukrainian-voice-transcriber/pkg/config"
 )
-
-func TestSetBucketName(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name           string
-		initialBucket  string
-		projectID      string
-		expectedBucket string
-	}{
-		{
-			name:           "sets bucket from project ID when empty",
-			initialBucket:  "",
-			projectID:      "my-project",
-			expectedBucket: "my-project-voice-transcriber-data",
-		},
-		{
-			name:           "does not override existing bucket name",
-			initialBucket:  "my-existing-bucket",
-			projectID:      "my-project",
-			expectedBucket: "my-existing-bucket",
-		},
-		{
-			name:           "no-op when project ID is empty",
-			initialBucket:  "",
-			projectID:      "",
-			expectedBucket: "",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			cfg := &config.Config{BucketName: tc.initialBucket}
-			transcriber.SetBucketName(cfg, tc.projectID)
-
-			if cfg.BucketName != tc.expectedBucket {
-				t.Errorf("transcriber.SetBucketName() BucketName = %q; want %q", cfg.BucketName, tc.expectedBucket)
-			}
-		})
-	}
-}
 
 func TestGenerateAudioPath(t *testing.T) {
 	t.Parallel()
 
-	videoPath := "/some/dir/my video file.mp4"
-	audioPath := transcriber.GenerateAudioPath(videoPath)
+	inputPath := "/some/dir/my video file.mp4"
+	audioPath := transcriber.GenerateAudioPath(inputPath)
 
 	// Must be in the system temp dir
 	if !strings.HasPrefix(audioPath, os.TempDir()) {
-		t.Errorf("transcriber.GenerateAudioPath() = %q; want prefix %q", audioPath, os.TempDir())
+		t.Errorf("GenerateAudioPath() = %q; want prefix %q", audioPath, os.TempDir())
 	}
 
 	// Must end with .wav
 	if filepath.Ext(audioPath) != ".wav" {
-		t.Errorf("transcriber.GenerateAudioPath() = %q; want .wav extension", audioPath)
+		t.Errorf("GenerateAudioPath() = %q; want .wav extension", audioPath)
 	}
 
 	// Must contain the base name (without extension) of the input
-	base := strings.TrimSuffix(filepath.Base(videoPath), filepath.Ext(videoPath))
+	base := strings.TrimSuffix(filepath.Base(inputPath), filepath.Ext(inputPath))
 	if !strings.Contains(filepath.Base(audioPath), base) {
-		t.Errorf("transcriber.GenerateAudioPath() = %q; want base name %q in output", audioPath, base)
+		t.Errorf("GenerateAudioPath() = %q; want base name %q in output", audioPath, base)
 	}
 
 	// Two calls must produce different paths (timestamp-based uniqueness)
-	audioPath2 := transcriber.GenerateAudioPath(videoPath)
+	audioPath2 := transcriber.GenerateAudioPath(inputPath)
 	if audioPath == audioPath2 {
-		t.Errorf("transcriber.GenerateAudioPath() returned identical paths on two calls: %q", audioPath)
+		t.Errorf("GenerateAudioPath() returned identical paths on two calls: %q", audioPath)
 	}
 }
 
@@ -102,7 +58,7 @@ func TestValidateAndSanitizeVideoPath(t *testing.T) {
 	t.Run("regular file is accepted", func(t *testing.T) {
 		t.Parallel()
 
-		f, err := os.CreateTemp(t.TempDir(), "test-video-*.mp4")
+		f, err := os.CreateTemp(t.TempDir(), "test-media-*.mp4")
 		if err != nil {
 			t.Fatalf("failed to create temp file: %v", err)
 		}
@@ -144,7 +100,6 @@ func TestValidateAndSanitizeVideoPath(t *testing.T) {
 			t.Fatalf("failed to close temp file: %v", err)
 		}
 
-		// Provide a path with redundant slashes / dots
 		dirty := filepath.Join(dir, ".", filepath.Base(f.Name()))
 		clean := filepath.Clean(dirty)
 
@@ -157,4 +112,48 @@ func TestValidateAndSanitizeVideoPath(t *testing.T) {
 			t.Errorf("got %q; want cleaned path %q", got, clean)
 		}
 	})
+}
+
+func TestClassifyInputFile(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		path             string
+		wantType         transcriber.InputType
+		wantMIMENotEmpty bool
+	}{
+		{path: "recording.wav", wantType: transcriber.InputTypeAudio, wantMIMENotEmpty: true},
+		{path: "recording.mp3", wantType: transcriber.InputTypeAudio, wantMIMENotEmpty: true},
+		{path: "recording.flac", wantType: transcriber.InputTypeAudio, wantMIMENotEmpty: true},
+		{path: "recording.ogg", wantType: transcriber.InputTypeAudio, wantMIMENotEmpty: true},
+		{path: "recording.m4a", wantType: transcriber.InputTypeAudio, wantMIMENotEmpty: true},
+		{path: "recording.aac", wantType: transcriber.InputTypeAudio, wantMIMENotEmpty: true},
+		{path: "video.mp4", wantType: transcriber.InputTypeVideo, wantMIMENotEmpty: false},
+		{path: "video.mkv", wantType: transcriber.InputTypeVideo, wantMIMENotEmpty: false},
+		{path: "video.mov", wantType: transcriber.InputTypeVideo, wantMIMENotEmpty: false},
+		{path: "video.avi", wantType: transcriber.InputTypeVideo, wantMIMENotEmpty: false},
+		// Mixed-case extension
+		{path: "recording.WAV", wantType: transcriber.InputTypeAudio, wantMIMENotEmpty: true},
+		{path: "video.MP4", wantType: transcriber.InputTypeVideo, wantMIMENotEmpty: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.path, func(t *testing.T) {
+			t.Parallel()
+
+			gotType, gotMIME := transcriber.ClassifyInputFile(tc.path)
+
+			if gotType != tc.wantType {
+				t.Errorf("ClassifyInputFile(%q) type = %v; want %v", tc.path, gotType, tc.wantType)
+			}
+
+			if tc.wantMIMENotEmpty && gotMIME == "" {
+				t.Errorf("ClassifyInputFile(%q) MIME = empty; want non-empty", tc.path)
+			}
+
+			if !tc.wantMIMENotEmpty && gotMIME != "" {
+				t.Errorf("ClassifyInputFile(%q) MIME = %q; want empty", tc.path, gotMIME)
+			}
+		})
+	}
 }
