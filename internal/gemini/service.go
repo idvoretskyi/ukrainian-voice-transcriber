@@ -25,6 +25,9 @@ const (
 
 	// DefaultLocation is the default Vertex AI region.
 	DefaultLocation = "us-central1"
+
+	// autoLang is the sentinel value meaning automatic language detection.
+	autoLang = "auto"
 )
 
 // iso639Re matches exactly two lowercase ASCII letters (ISO 639-1 code).
@@ -44,14 +47,14 @@ Do not translate, summarize, or modify the content in any way.`
 	lang := strings.ToLower(strings.TrimSpace(language))
 
 	// Validate: accept "auto", empty string, or a two-letter ISO 639-1 code.
-	if lang != "" && lang != "auto" {
+	if lang != "" && lang != autoLang {
 		if !iso639Re.MatchString(lang) {
 			// Invalid input — fall back to automatic detection.
-			lang = "auto"
+			lang = autoLang
 		}
 	}
 
-	if lang == "" || lang == "auto" {
+	if lang == "" || lang == autoLang {
 		return "Transcribe the following audio recording verbatim in its original spoken language." + suffix
 	}
 
