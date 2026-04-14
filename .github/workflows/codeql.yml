@@ -48,6 +48,8 @@ jobs:
           config-file: ./.github/codeql-config.yml
 
       - name: Build
+        env:
+          GOTOOLCHAIN: auto
         run: make build
 
       - name: Perform CodeQL Analysis

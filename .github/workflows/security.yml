@@ -125,8 +125,10 @@ jobs:
         languages: go
         config-file: ./.github/codeql/codeql-config.yml
 
-    - name: Autobuild
-      uses: github/codeql-action/autobuild@v4
+    - name: Build
+      env:
+        GOTOOLCHAIN: auto
+      run: make build
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v4
