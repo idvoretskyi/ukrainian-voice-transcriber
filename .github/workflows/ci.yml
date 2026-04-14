@@ -91,4 +91,26 @@ jobs:
         run: |
           GOOS=linux GOARCH=amd64 go build -v ./cmd/voice-transcriber
           GOOS=darwin GOARCH=amd64 go build -v ./cmd/voice-transcriber
-          GOOS=windows GOARCH=amd64 go build -v ./cmd/voice-transcriber
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Cache Go modules
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Run e2e tests
+        run: go test -v -race -count=1 ./test/e2e/

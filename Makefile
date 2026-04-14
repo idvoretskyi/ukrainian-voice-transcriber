@@ -17,7 +17,7 @@ GOARCH ?= $(shell go env GOARCH)
 # Directories
 DIST_DIR=dist
 
-.PHONY: all build build-all clean test test-coverage help install deps lint fmt vet security release-check release-prepare checksums dev release
+.PHONY: all build build-all clean test test-e2e test-coverage help install deps lint fmt vet security release-check release-prepare checksums dev release
 
 # Default target
 all: build
@@ -70,6 +70,12 @@ test:
 	@echo "Running tests..."
 	go test -v -race -coverprofile=coverage.out ./...
 	@echo "Tests completed"
+
+# Run e2e tests
+test-e2e:
+	@echo "Running e2e tests..."
+	go test -v -race -count=1 ./test/e2e/
+	@echo "E2E tests completed"
 
 # Run tests with coverage
 test-coverage: test
@@ -143,6 +149,7 @@ help:
 	@echo "  make vet             - Vet code"
 	@echo "  make lint            - Lint code"
 	@echo "  make test            - Run tests"
+	@echo "  make test-e2e        - Run end-to-end tests"
 	@echo "  make test-coverage   - Run tests with coverage"
 	@echo "  make security        - Run security scan"
 	@echo ""
