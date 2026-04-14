@@ -35,7 +35,7 @@ permissions:
   security-events: write
 
 env:
-  GO_VERSION: '1.25'
+  GO_VERSION: '1.26'
 
 jobs:
   # Manual tag creation (only for workflow_dispatch)
@@ -103,7 +103,7 @@ jobs:
         id: setup
         uses: actions/setup-go@v6
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
 
       - name: Extract version
         id: version
@@ -159,7 +159,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
 
       - name: Run linter
         uses: golangci/golangci-lint-action@v9
@@ -195,7 +195,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
 
       - name: Run Go vulnerability check
         run: |
@@ -230,7 +230,7 @@ jobs:
       slsa-framework/slsa-github-generator/.github/workflows/builder_go_slsa3.yml@v2.1.0
     needs: [pre-release-checks, code-quality, security-scan]
     with:
-      go-version: '1.25'
+      go-version: '1.26'
       config-file: .slsa-goreleaser.yml
       evaluated-envs: >-
         VERSION:${{ needs.pre-release-checks.outputs.version ||

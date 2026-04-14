@@ -7,9 +7,6 @@ name: Continuous Integration
   pull_request:
     branches: [main]
 
-env:
-  GO_VERSION: '1.25'
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -19,7 +16,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
 
       - name: Cache Go modules
         uses: actions/cache@v5
@@ -56,7 +53,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
 
       - name: Run linter
         uses: golangci/golangci-lint-action@v9
@@ -72,7 +69,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
 
       - name: Cache Go modules
         uses: actions/cache@v5

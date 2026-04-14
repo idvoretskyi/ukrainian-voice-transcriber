@@ -6,15 +6,15 @@
 // Package transcriber exports internal symbols for testing.
 package transcriber
 
-import "github.com/idvoretskyi/ukrainian-voice-transcriber/pkg/config"
-
-// SetBucketName exposes setBucketName for black-box tests.
-func SetBucketName(cfg *config.Config, projectID string) { setBucketName(cfg, projectID) }
-
 // GenerateAudioPath exposes generateAudioPath for black-box tests.
-func GenerateAudioPath(videoPath string) string { return generateAudioPath(videoPath) }
+func GenerateAudioPath(inputPath string) string { return generateAudioPath(inputPath) }
 
 // ValidateAndSanitizeVideoPath exposes validateAndSanitizeVideoPath for black-box tests.
-func ValidateAndSanitizeVideoPath(videoPath string) (string, error) {
-	return validateAndSanitizeVideoPath(videoPath)
+func ValidateAndSanitizeVideoPath(inputPath string) (string, error) {
+	return validateAndSanitizeVideoPath(inputPath)
+}
+
+// ClassifyInputFile exposes classifyInputFile for black-box tests.
+func ClassifyInputFile(inputPath string) (InputType, string) {
+	return classifyInputFile(inputPath)
 }
