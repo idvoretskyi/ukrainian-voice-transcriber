@@ -17,7 +17,7 @@ GOARCH ?= $(shell go env GOARCH)
 # Directories
 DIST_DIR=dist
 
-.PHONY: all build clean test help install lint fmt vet security
+.PHONY: all build build-all clean test test-coverage help install deps lint fmt vet security release-check release-prepare checksums dev release
 
 # Default target
 all: build
@@ -25,7 +25,7 @@ all: build
 # Build the binary
 build:
 	@echo "Building $(BINARY_NAME)..."
-	go build $(BUILD_FLAGS) -o $(BINARY_NAME) ./cmd/transcriber
+	go build $(BUILD_FLAGS) -o $(BINARY_NAME) ./cmd/voice-transcriber
 	@echo "Built: $(BINARY_NAME)"
 
 # Build for multiple platforms (linux + darwin, amd64 + arm64)
@@ -33,20 +33,20 @@ build-all: clean
 	@echo "Building for multiple platforms..."
 	@mkdir -p $(DIST_DIR)
 	@echo "Building Linux AMD64..."
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build $(BUILD_FLAGS) -o $(DIST_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd/transcriber
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build $(BUILD_FLAGS) -o $(DIST_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd/voice-transcriber
 	@echo "Building Linux ARM64..."
-	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build $(BUILD_FLAGS) -o $(DIST_DIR)/$(BINARY_NAME)-linux-arm64 ./cmd/transcriber
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build $(BUILD_FLAGS) -o $(DIST_DIR)/$(BINARY_NAME)-linux-arm64 ./cmd/voice-transcriber
 	@echo "Building macOS AMD64..."
-	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build $(BUILD_FLAGS) -o $(DIST_DIR)/$(BINARY_NAME)-darwin-amd64 ./cmd/transcriber
+	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build $(BUILD_FLAGS) -o $(DIST_DIR)/$(BINARY_NAME)-darwin-amd64 ./cmd/voice-transcriber
 	@echo "Building macOS ARM64..."
-	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build $(BUILD_FLAGS) -o $(DIST_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/transcriber
+	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build $(BUILD_FLAGS) -o $(DIST_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/voice-transcriber
 	@echo "Built all platforms"
 	@ls -la $(DIST_DIR)/
 
 # Install to $GOPATH/bin
 install:
 	@echo "Installing to GOPATH/bin..."
-	go install $(BUILD_FLAGS) ./cmd/transcriber
+	go install $(BUILD_FLAGS) ./cmd/voice-transcriber
 	@echo "Installed: $(BINARY_NAME)"
 
 # Clean build artifacts

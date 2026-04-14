@@ -9,6 +9,7 @@ package gemini
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"cloud.google.com/go/vertexai/genai"
@@ -26,20 +27,35 @@ const (
 	DefaultLocation = "us-central1"
 )
 
+// iso639Re matches exactly two lowercase ASCII letters (ISO 639-1 code).
+var iso639Re = regexp.MustCompile(`^[a-z]{2}$`)
+
 // buildPrompt returns the transcription prompt for the given language.
 // When language is "auto" or empty, Gemini detects the language automatically.
-// Otherwise language should be an ISO 639-1 code (e.g. "uk", "en", "de").
+// Otherwise language must be a two-letter ISO 639-1 code (e.g. "uk", "en", "de").
+// Inputs are normalized (trimmed, lowercased) and validated; invalid values fall
+// back to automatic detection.
 func buildPrompt(language string) string {
 	const suffix = `
 Output only the transcription text with no commentary, labels, or metadata.
 Preserve natural sentence structure and add punctuation where appropriate.
 Do not translate, summarize, or modify the content in any way.`
 
-	if language == "" || language == "auto" {
+	lang := strings.ToLower(strings.TrimSpace(language))
+
+	// Validate: accept "auto", empty string, or a two-letter ISO 639-1 code.
+	if lang != "" && lang != "auto" {
+		if !iso639Re.MatchString(lang) {
+			// Invalid input — fall back to automatic detection.
+			lang = "auto"
+		}
+	}
+
+	if lang == "" || lang == "auto" {
 		return "Transcribe the following audio recording verbatim in its original spoken language." + suffix
 	}
 
-	return "Transcribe the following audio recording verbatim in " + language + "." + suffix
+	return "Transcribe the following audio recording verbatim in " + lang + "." + suffix
 }
 
 // Service handles Gemini transcription via Vertex AI.

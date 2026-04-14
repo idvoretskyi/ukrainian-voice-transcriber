@@ -85,10 +85,10 @@ jobs:
         run: go mod download
 
       - name: Build
-        run: go build -v ./cmd/transcriber
+        run: go build -v ./cmd/voice-transcriber
 
       - name: Test build for multiple platforms
         run: |
-          GOOS=linux GOARCH=amd64 go build -v ./cmd/transcriber
-          GOOS=darwin GOARCH=amd64 go build -v ./cmd/transcriber
-          GOOS=windows GOARCH=amd64 go build -v ./cmd/transcriber
+          GOOS=linux GOARCH=amd64 go build -v ./cmd/voice-transcriber
+          GOOS=darwin GOARCH=amd64 go build -v ./cmd/voice-transcriber
+          GOOS=windows GOARCH=amd64 go build -v ./cmd/voice-transcriber

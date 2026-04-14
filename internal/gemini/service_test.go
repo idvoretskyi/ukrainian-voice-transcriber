@@ -66,6 +66,43 @@ func TestBuildPrompt(t *testing.T) {
 		}
 	})
 
+	t.Run("uppercase ISO code is normalized to lowercase", func(t *testing.T) {
+		t.Parallel()
+
+		p := gemini.BuildPrompt("UK")
+		if strings.Contains(p, "original spoken language") {
+			t.Errorf("BuildPrompt(%q) should not fall back to auto-detection", "UK")
+		}
+
+		if !strings.Contains(p, "uk") {
+			t.Errorf("BuildPrompt(%q) = %q; want it to contain the normalized lowercase code", "UK", p)
+		}
+	})
+
+	t.Run("whitespace around ISO code is trimmed", func(t *testing.T) {
+		t.Parallel()
+
+		p := gemini.BuildPrompt("  en  ")
+		if strings.Contains(p, "original spoken language") {
+			t.Errorf("BuildPrompt(%q) should not fall back to auto-detection", "  en  ")
+		}
+
+		if !strings.Contains(p, "en") {
+			t.Errorf("BuildPrompt(%q) = %q; want it to contain the trimmed code", "  en  ", p)
+		}
+	})
+
+	t.Run("invalid language falls back to auto-detection", func(t *testing.T) {
+		t.Parallel()
+
+		for _, bad := range []string{"english", "123", "a", "uk-UA", "uk_UA", "u k"} {
+			p := gemini.BuildPrompt(bad)
+			if !strings.Contains(p, "original spoken language") {
+				t.Errorf("BuildPrompt(%q) = %q; want fallback to 'original spoken language' for invalid input", bad, p)
+			}
+		}
+	})
+
 	t.Run("prompt always contains transcription instructions", func(t *testing.T) {
 		t.Parallel()
 

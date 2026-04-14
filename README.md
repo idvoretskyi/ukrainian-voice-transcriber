@@ -36,10 +36,10 @@ brew install ffmpeg        # macOS
 ### Install
 
 ```bash
-go install github.com/idvoretskyi/voice-transcriber/cmd/transcriber@latest
+go install github.com/idvoretskyi/voice-transcriber/cmd/voice-transcriber@latest
 ```
 
-Ensure `$(go env GOPATH)/bin` is on your `$PATH`:
+This installs the `voice-transcriber` binary into `$(go env GOPATH)/bin`.
 
 ```bash
 export PATH="$(go env GOPATH)/bin:$PATH"
@@ -63,30 +63,30 @@ The project is also read from the `GOOGLE_CLOUD_PROJECT` environment variable if
 
 ```bash
 # Transcribe a video file (language auto-detected, audio extracted via FFmpeg)
-transcriber transcribe input/meeting.mp4
+voice-transcriber transcribe input/meeting.mp4
 
 # Transcribe an audio file directly
-transcriber transcribe input/interview.mp3
+voice-transcriber transcribe input/interview.mp3
 
 # Specify output file
-transcriber transcribe input/meeting.mp4 -o transcript.txt
+voice-transcriber transcribe input/meeting.mp4 -o transcript.txt
 
 # Force a specific language (ISO 639-1 code)
-transcriber transcribe input/meeting.mp4 --language uk
+voice-transcriber transcribe input/meeting.mp4 --language uk
 
 # Use a different model or region
-transcriber transcribe input/meeting.mp4 --model gemini-2.5-flash --location europe-west4
+voice-transcriber transcribe input/meeting.mp4 --model gemini-2.5-flash --location europe-west4
 
 # Show version
-transcriber version
+voice-transcriber version
 ```
 
 ## CLI Reference
 
 ```
 Usage:
-  transcriber transcribe [media-file] [flags]
-  transcriber version
+  voice-transcriber transcribe [media-file] [flags]
+  voice-transcriber version
 
 Flags:
   --language string   Language for transcription: 'auto' for automatic detection,

@@ -5,7 +5,7 @@ flags:
   - -trimpath
 goos: darwin
 goarch: amd64
-main: ./cmd/transcriber
+main: ./cmd/voice-transcriber
 binary: voice-transcriber-{{ .Os }}-{{ .Arch }}
 ldflags:
   - "-w -s"
