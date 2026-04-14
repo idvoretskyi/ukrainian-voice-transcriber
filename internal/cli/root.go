@@ -58,11 +58,7 @@ Examples:
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() error {
-	if err := rootCmd.Execute(); err != nil {
-		return fmt.Errorf("command execution failed: %w", err)
-	}
-
-	return nil
+	return rootCmd.Execute()
 }
 
 func init() {

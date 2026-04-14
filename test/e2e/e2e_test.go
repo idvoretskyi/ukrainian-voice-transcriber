@@ -68,7 +68,7 @@ func buildBinary() (string, func(), error) {
 
 // run executes the binary with the given arguments and optional env overrides,
 // and returns the combined stdout, stderr, and exit code.
-func run(t *testing.T, env []string, args ...string) (stdout, stderr string, exitCode int) {
+func run(t *testing.T, env []string, args ...string) (string, string, int) {
 	t.Helper()
 
 	//nolint:gosec // binaryPath is built by buildBinary above, args are test-controlled
@@ -85,7 +85,7 @@ func run(t *testing.T, env []string, args ...string) (stdout, stderr string, exi
 
 	err := cmd.Run()
 
-	exitCode = 0
+	var exitCode int
 
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {

@@ -82,13 +82,7 @@ func New(cfg *config.Config) (*Transcriber, error) {
 	}
 
 	if !cfg.Quiet {
-		model := cfg.GeminiModel
-		if model == "" {
-			model = gemini.DefaultModel
-		}
-
 		fmt.Printf("ℹ️  Project: %s\n", projectID)
-		fmt.Printf("ℹ️  Using Gemini model: %s\n", model)
 	}
 
 	geminiService, err := gemini.NewService(ctx, cfg, projectID)
@@ -106,6 +100,13 @@ func New(cfg *config.Config) (*Transcriber, error) {
 func (t *Transcriber) logInfo(msg string) {
 	if !t.config.Quiet {
 		fmt.Printf("ℹ️  %s\n", msg)
+	}
+}
+
+// logVerbose logs messages only when verbose mode is enabled and not suppressed by quiet.
+func logVerbose(cfg *config.Config, format string, args ...any) {
+	if cfg.Verbose && !cfg.Quiet {
+		fmt.Printf("ℹ️  "+format+"\n", args...)
 	}
 }
 

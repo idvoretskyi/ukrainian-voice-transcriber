@@ -78,9 +78,7 @@ func prepareAudio(inputPath string, cfg *config.Config) (*PreparedAudio, error) 
 	switch inputType {
 	case InputTypeAudio:
 		// Read audio bytes directly — no FFmpeg needed.
-		if cfg.Verbose && !cfg.Quiet {
-			fmt.Printf("ℹ️  Audio file detected (%s), skipping FFmpeg extraction\n", mimeType)
-		}
+		logVerbose(cfg, "Audio file detected (%s), skipping FFmpeg extraction", mimeType)
 
 		data, err := os.ReadFile(cleanPath) // #nosec G304 -- cleanPath validated above
 		if err != nil {
@@ -112,9 +110,7 @@ func prepareAudio(inputPath string, cfg *config.Config) (*PreparedAudio, error) 
 			MIMEType: "audio/wav",
 			Cleanup: func() {
 				if removeErr := os.Remove(audioPath); removeErr != nil && !os.IsNotExist(removeErr) {
-					if cfg.Verbose && !cfg.Quiet {
-						fmt.Printf("ℹ️  Warning: failed to remove temp audio file: %v\n", removeErr)
-					}
+					logVerbose(cfg, "Warning: failed to remove temp audio file: %v", removeErr)
 				}
 			},
 		}, nil
@@ -130,9 +126,7 @@ func extractAudio(videoPath string, cfg *config.Config) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 
-	if cfg.Verbose && !cfg.Quiet {
-		fmt.Printf("ℹ️  Extracting audio from video: %s\n", videoPath)
-	}
+	logVerbose(cfg, "Extracting audio from video: %s", videoPath)
 
 	// Find full path to FFmpeg executable for security
 	ffmpegPath, err := exec.LookPath("ffmpeg")
@@ -148,9 +142,7 @@ func extractAudio(videoPath string, cfg *config.Config) (string, error) {
 		return "", err
 	}
 
-	if cfg.Verbose && !cfg.Quiet {
-		fmt.Printf("ℹ️  Audio extracted to: %s\n", audioPath)
-	}
+	logVerbose(cfg, "Audio extracted to: %s", audioPath)
 
 	return audioPath, nil
 }
