@@ -9,10 +9,7 @@ GIT_COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 BUILD_FLAGS=-ldflags="-w -s -X 'main.version=$(VERSION)' -X 'main.buildDate=$(BUILD_DATE)' -X 'main.gitCommit=$(GIT_COMMIT)'"
 
 # Go settings
-GO_VERSION ?= 1.25
-GOPATH ?= $(shell go env GOPATH)
-GOOS ?= $(shell go env GOOS)
-GOARCH ?= $(shell go env GOARCH)
+GO_VERSION ?= 1.25.9
 
 # Directories
 DIST_DIR=dist
@@ -111,7 +108,7 @@ security:
 	@if command -v gosec >/dev/null 2>&1; then \
 		gosec ./...; \
 	else \
-		echo "gosec not found. Install with: go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest"; \
+		echo "gosec not found. Install with: go install github.com/securego/gosec/v2/cmd/gosec@latest"; \
 	fi
 	@echo "Security scan completed"
 
@@ -130,7 +127,7 @@ release-prepare: release-check clean fmt vet lint test
 checksums:
 	@echo "Generating checksums..."
 	@if [ ! -d "$(DIST_DIR)" ]; then echo "No dist directory. Run 'make build-all' first"; exit 1; fi
-	@cd $(DIST_DIR) && sha256sum * > checksums.txt
+	@cd $(DIST_DIR) && shasum -a 256 * > checksums.txt
 	@echo "Checksums generated: $(DIST_DIR)/checksums.txt"
 
 # Show help

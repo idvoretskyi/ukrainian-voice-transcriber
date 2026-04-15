@@ -16,6 +16,6 @@ type Config struct {
 	Language string
 
 	// Gemini model selection
-	GeminiModel string // e.g., "gemini-3.1-flash-lite-preview", "gemini-2.5-flash"
-	GCPLocation string // Vertex AI region, e.g., "us-central1"
+	GeminiModel string // e.g., "gemini-3.1-flash-lite-preview", "gemini-3-flash-preview"
+	GCPLocation string // Vertex AI location, e.g., "global", "us-central1"
 }

@@ -18,13 +18,15 @@ import (
 	"github.com/idvoretskyi/voice-transcriber/pkg/config"
 )
 
+const gcloudTimeout = 10 * time.Second
+
 // TranscriptionResult represents the result of a transcription.
 type TranscriptionResult struct {
-	Text           string        `json:"text"`
-	Error          string        `json:"error,omitempty"`
-	ProcessingTime time.Duration `json:"processing_time,omitempty"`
-	WordCount      int           `json:"word_count"`
-	Success        bool          `json:"success"`
+	Text           string
+	Error          string
+	ProcessingTime time.Duration
+	WordCount      int
+	Success        bool
 }
 
 // Transcriber handles the main transcription logic.
@@ -34,8 +36,8 @@ type Transcriber struct {
 }
 
 // getProjectIDFromGcloud gets the current project ID from gcloud.
-func getProjectIDFromGcloud() (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+func getProjectIDFromGcloud(ctx context.Context) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, gcloudTimeout)
 	defer cancel()
 
 	gcloudPath, err := exec.LookPath("gcloud")
@@ -64,15 +66,12 @@ func getProjectIDFromGcloud() (string, error) {
 }
 
 // New creates a new Transcriber instance, initializing the Gemini service.
-func New(cfg *config.Config) (*Transcriber, error) {
-	ctx := context.Background()
-
-	// Resolve the GCP project ID
+func New(ctx context.Context, cfg *config.Config) (*Transcriber, error) {
 	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
 	if projectID == "" {
 		var err error
 
-		projectID, err = getProjectIDFromGcloud()
+		projectID, err = getProjectIDFromGcloud(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve GCP project ID: %w\n\n"+
 				"Set it with one of:\n"+
@@ -96,14 +95,7 @@ func New(cfg *config.Config) (*Transcriber, error) {
 	}, nil
 }
 
-// logInfo logs info messages if not in quiet mode.
-func (t *Transcriber) logInfo(msg string) {
-	if !t.config.Quiet {
-		fmt.Printf("ℹ️  %s\n", msg)
-	}
-}
-
-// logVerbose logs messages only when verbose mode is enabled and not suppressed by quiet.
+// logVerbose logs a message only when verbose mode is enabled and quiet is not set.
 func logVerbose(cfg *config.Config, format string, args ...any) {
 	if cfg.Verbose && !cfg.Quiet {
 		fmt.Printf("ℹ️  "+format+"\n", args...)
@@ -115,10 +107,11 @@ func logVerbose(cfg *config.Config, format string, args ...any) {
 func (t *Transcriber) TranscribeLocalFile(ctx context.Context, inputPath string) *TranscriptionResult {
 	startTime := time.Now()
 
-	t.logInfo(fmt.Sprintf("Processing: %s", inputPath))
+	if !t.config.Quiet {
+		fmt.Printf("ℹ️  Processing: %s\n", inputPath)
+	}
 
-	// Prepare audio (extract if video, read directly if audio)
-	prepared, err := prepareAudio(inputPath, t.config)
+	prepared, err := prepareAudio(ctx, inputPath, t.config)
 	if err != nil {
 		return &TranscriptionResult{
 			Success: false,
@@ -128,7 +121,6 @@ func (t *Transcriber) TranscribeLocalFile(ctx context.Context, inputPath string)
 
 	defer prepared.Cleanup()
 
-	// Send to Gemini for transcription
 	transcript, err := t.geminiService.TranscribeAudio(ctx, prepared.Data, prepared.MIMEType)
 	if err != nil {
 		return &TranscriptionResult{
@@ -137,24 +129,10 @@ func (t *Transcriber) TranscribeLocalFile(ctx context.Context, inputPath string)
 		}
 	}
 
-	processingTime := time.Since(startTime)
-	wordCount := len(strings.Fields(transcript))
-
 	return &TranscriptionResult{
 		Text:           transcript,
 		Success:        true,
-		WordCount:      wordCount,
-		ProcessingTime: processingTime,
+		WordCount:      len(strings.Fields(transcript)),
+		ProcessingTime: time.Since(startTime),
 	}
-}
-
-// Close releases resources held by the Transcriber.
-func (t *Transcriber) Close() error {
-	if t.geminiService != nil {
-		if err := t.geminiService.Close(); err != nil {
-			return fmt.Errorf("closing gemini service: %w", err)
-		}
-	}
-
-	return nil
 }

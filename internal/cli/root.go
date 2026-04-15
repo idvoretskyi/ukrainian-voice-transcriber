@@ -15,9 +15,7 @@ import (
 	"github.com/idvoretskyi/voice-transcriber/pkg/config"
 )
 
-const (
-	appName = "Voice Transcriber"
-)
+const appName = "Voice Transcriber"
 
 var globalConfig config.Config
 
@@ -49,7 +47,7 @@ Examples:
   voice-transcriber transcribe input/recording.wav
   voice-transcriber transcribe input/video.mp4 -o output.txt
   voice-transcriber transcribe input/video.mp4 --verbose
-  voice-transcriber transcribe input/video.mp4 --model gemini-2.5-flash
+  voice-transcriber transcribe input/video.mp4 --model gemini-3-flash-preview
   voice-transcriber transcribe input/video.mp4 --language uk
   voice-transcriber version`, appName, buildVersion),
 	SilenceUsage: true,
@@ -76,11 +74,11 @@ func init() {
 
 	// Gemini model selection
 	rootCmd.PersistentFlags().StringVar(&globalConfig.GeminiModel, "model", gemini.DefaultModel,
-		"Gemini model to use for transcription (e.g. gemini-3.1-flash-lite-preview, gemini-2.5-flash, gemini-2.5-flash-lite)")
+		"Gemini model to use for transcription (e.g. gemini-3.1-flash-lite-preview, gemini-3-flash-preview)")
 
 	// Vertex AI region
 	rootCmd.PersistentFlags().StringVar(&globalConfig.GCPLocation, "location", gemini.DefaultLocation,
-		"Vertex AI region (e.g. us-central1, europe-west4)")
+		"Vertex AI location (e.g. global, us-central1, europe-west4); Gemini 3.x models require global")
 
 	// Add subcommands
 	rootCmd.AddCommand(transcribeCmd)

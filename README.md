@@ -74,8 +74,9 @@ voice-transcriber transcribe input/meeting.mp4 -o transcript.txt
 # Force a specific language (ISO 639-1 code)
 voice-transcriber transcribe input/meeting.mp4 --language uk
 
-# Use a different model or region
-voice-transcriber transcribe input/meeting.mp4 --model gemini-2.5-flash --location europe-west4
+# Use a different model or location
+voice-transcriber transcribe input/meeting.mp4 --model gemini-3-flash-preview
+voice-transcriber transcribe input/meeting.mp4 --model gemini-2.5-flash --location us-central1
 
 # Show version
 voice-transcriber version
@@ -93,8 +94,8 @@ Flags:
                       or ISO 639-1 code (e.g. uk, en, de) (default: auto)
   --model string      Gemini model to use
                       (default: gemini-3.1-flash-lite-preview)
-  --location string   Vertex AI region
-                      (default: us-central1)
+  --location string   Vertex AI location; Gemini 3.x models require global
+                      (default: global)
   -o, --output string Output file path
                       (default: output/<name>/<name>.txt)
   -v, --verbose       Enable verbose output

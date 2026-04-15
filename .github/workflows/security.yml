@@ -15,35 +15,30 @@ permissions:
   pull-requests: write
 
 env:
-  GO_VERSION: '1.25'
+  GO_VERSION: '1.25.9'
 
 jobs:
-  # Combined security analysis with matrix strategy
+  # Go-based security scanners (gosec, govulncheck)
   security-analysis:
-    name: Security Analysis
+    name: Security Analysis (${{ matrix.tool }})
     runs-on: ubuntu-latest
     permissions:
       security-events: write
       contents: read
-    
+
     strategy:
       fail-fast: false
       matrix:
-        tool: [gosec, trivy, govulncheck]
         include:
           - tool: gosec
             output_format: sarif
             output_file: gosec-results.sarif
             command: gosec -fmt sarif -out gosec-results.sarif ./...
-          - tool: trivy
-            output_format: sarif
-            output_file: trivy-results.sarif
-            command: trivy fs --format sarif --output trivy-results.sarif .
           - tool: govulncheck
             output_format: text
             output_file: ""
             command: govulncheck ./...
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v6
@@ -52,40 +47,44 @@ jobs:
       uses: actions/setup-go@v6
       with:
         go-version-file: go.mod
+        cache: true
 
-    - name: Install security tools
+    - name: Install ${{ matrix.tool }}
       run: |
         case "${{ matrix.tool }}" in
           gosec)
-            go install github.com/securego/gosec/v2/cmd/gosec@latest
+            go install github.com/securego/gosec/v2/cmd/gosec@v2.25.0
             echo "$HOME/go/bin" >> $GITHUB_PATH
             ;;
-          trivy)
-            # Trivy will be installed by the action
-            ;;
           govulncheck)
-            go install golang.org/x/vuln/cmd/govulncheck@latest
+            go install golang.org/x/vuln/cmd/govulncheck@v1.2.0
             echo "$HOME/go/bin" >> $GITHUB_PATH
             ;;
         esac
 
-    - name: Run security scan - ${{ matrix.tool }}
-      run: |
-        case "${{ matrix.tool }}" in
-          gosec)
-            ${{ matrix.command }}
-            ;;
-          trivy)
-            # Use trivy action for better reliability
-            ;;
-          govulncheck)
-            ${{ matrix.command }}
-            ;;
-        esac
-      continue-on-error: true
+    - name: Run ${{ matrix.tool }}
+      run: ${{ matrix.command }}
+
+    - name: Upload SARIF results
+      if: matrix.output_format == 'sarif'
+      uses: github/codeql-action/upload-sarif@v4
+      with:
+        sarif_file: ${{ matrix.output_file }}
+        category: ${{ matrix.tool }}
+
+  # Trivy vulnerability scanner (uses dedicated action, not go install)
+  trivy:
+    name: Trivy Vulnerability Scan
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v6
 
     - name: Run Trivy vulnerability scanner
-      if: matrix.tool == 'trivy'
       uses: aquasecurity/trivy-action@0.35.0
       with:
         scan-type: 'fs'
@@ -93,12 +92,11 @@ jobs:
         format: 'sarif'
         output: 'trivy-results.sarif'
 
-    - name: Upload SARIF results - ${{ matrix.tool }}
-      if: matrix.output_format == 'sarif'
+    - name: Upload Trivy SARIF results
       uses: github/codeql-action/upload-sarif@v4
       with:
-        sarif_file: ${{ matrix.output_file }}
-        category: ${{ matrix.tool }}
+        sarif_file: trivy-results.sarif
+        category: trivy
 
   # CodeQL Analysis (separate due to special requirements)
   codeql-analysis:
@@ -118,6 +116,7 @@ jobs:
       uses: actions/setup-go@v6
       with:
         go-version-file: go.mod
+        cache: true
 
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v4

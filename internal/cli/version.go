@@ -3,7 +3,6 @@
 //
 // Licensed under MIT License
 
-// Package cli provides command-line interface functionality.
 package cli
 
 import (
