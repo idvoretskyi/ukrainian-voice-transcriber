@@ -1,4 +1,4 @@
-// Ukrainian Voice Transcriber
+// Voice Transcriber
 // Copyright (c) 2025 Ihor Dvoretskyi
 //
 // Licensed under MIT License
@@ -9,11 +9,12 @@ package gemini
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"cloud.google.com/go/vertexai/genai"
 
-	"github.com/idvoretskyi/ukrainian-voice-transcriber/pkg/config"
+	"github.com/idvoretskyi/voice-transcriber/pkg/config"
 )
 
 const (
@@ -25,12 +26,40 @@ const (
 	// DefaultLocation is the default Vertex AI region.
 	DefaultLocation = "us-central1"
 
-	// transcriptionPrompt instructs the model to perform verbatim transcription.
-	transcriptionPrompt = `Transcribe the following audio recording verbatim in Ukrainian.
+	// autoLang is the sentinel value meaning automatic language detection.
+	autoLang = "auto"
+)
+
+// iso639Re matches exactly two lowercase ASCII letters (ISO 639-1 code).
+var iso639Re = regexp.MustCompile(`^[a-z]{2}$`)
+
+// buildPrompt returns the transcription prompt for the given language.
+// When language is "auto" or empty, Gemini detects the language automatically.
+// Otherwise language must be a two-letter ISO 639-1 code (e.g. "uk", "en", "de").
+// Inputs are normalized (trimmed, lowercased) and validated; invalid values fall
+// back to automatic detection.
+func buildPrompt(language string) string {
+	const suffix = `
 Output only the transcription text with no commentary, labels, or metadata.
 Preserve natural sentence structure and add punctuation where appropriate.
 Do not translate, summarize, or modify the content in any way.`
-)
+
+	lang := strings.ToLower(strings.TrimSpace(language))
+
+	// Validate: accept "auto", empty string, or a two-letter ISO 639-1 code.
+	if lang != "" && lang != autoLang {
+		if !iso639Re.MatchString(lang) {
+			// Invalid input — fall back to automatic detection.
+			lang = autoLang
+		}
+	}
+
+	if lang == "" || lang == autoLang {
+		return "Transcribe the following audio recording verbatim in its original spoken language." + suffix
+	}
+
+	return "Transcribe the following audio recording verbatim in " + lang + "." + suffix
+}
 
 // Service handles Gemini transcription via Vertex AI.
 type Service struct {
@@ -75,7 +104,7 @@ func (s *Service) TranscribeAudio(ctx context.Context, audioData []byte, mimeTyp
 	gm := s.client.GenerativeModel(model)
 
 	// Build the request: text prompt + audio blob
-	prompt := genai.Text(transcriptionPrompt)
+	prompt := genai.Text(buildPrompt(s.config.Language))
 	audioBlob := genai.Blob{
 		MIMEType: mimeType,
 		Data:     audioData,

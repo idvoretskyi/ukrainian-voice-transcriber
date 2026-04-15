@@ -14,7 +14,6 @@ linters:
     - misspell
     - gocritic
     - godot
-    - whitespace
     - wsl_v5
     - gocyclo
     - funlen

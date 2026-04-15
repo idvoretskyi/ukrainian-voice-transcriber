@@ -1,4 +1,4 @@
-// Ukrainian Voice Transcriber
+// Voice Transcriber
 //
 // Copyright (c) 2025 Ihor Dvoretskyi
 //
@@ -10,7 +10,7 @@ package main
 import (
 	"os"
 
-	"github.com/idvoretskyi/ukrainian-voice-transcriber/internal/cli"
+	"github.com/idvoretskyi/voice-transcriber/internal/cli"
 )
 
 // Version information - set by build flags.

@@ -1,4 +1,4 @@
-// Ukrainian Voice Transcriber
+// Voice Transcriber
 // Copyright (c) 2025 Ihor Dvoretskyi
 //
 // Licensed under MIT License
@@ -11,26 +11,27 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/idvoretskyi/ukrainian-voice-transcriber/internal/gemini"
-	"github.com/idvoretskyi/ukrainian-voice-transcriber/pkg/config"
+	"github.com/idvoretskyi/voice-transcriber/internal/gemini"
+	"github.com/idvoretskyi/voice-transcriber/pkg/config"
 )
 
 const (
-	appName = "Ukrainian Voice Transcriber"
+	appName = "Voice Transcriber"
 )
 
 var globalConfig config.Config
 
 // rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
-	Use:   "ukrainian-voice-transcriber",
-	Short: "AI-powered Ukrainian media-to-text transcription",
+	Use:   "voice-transcriber",
+	Short: "AI-powered media-to-text transcription with automatic language detection",
 	Long: fmt.Sprintf(`%s v%s
 
-Professional Ukrainian media-to-text transcription using Google Gemini via Vertex AI.
+Multilingual media-to-text transcription using Google Gemini via Vertex AI.
+Language is detected automatically from the audio by default.
 
 Features:
-• Ukrainian language optimized (uk-UA)
+• Automatic language detection (default) or specify with --language
 • Accepts both video files (mp4, mkv, mov, ...) and audio files (wav, mp3, flac, ...)
 • No Google Cloud Storage required — audio sent inline to Gemini
 • FFmpeg used only for video-to-audio extraction
@@ -44,12 +45,13 @@ Prerequisites:
 • GCP project configured (gcloud config set project YOUR_PROJECT_ID)
 
 Examples:
-  ukrainian-voice-transcriber transcribe input/video.mp4
-  ukrainian-voice-transcriber transcribe input/recording.wav
-  ukrainian-voice-transcriber transcribe input/video.mp4 -o output.txt
-  ukrainian-voice-transcriber transcribe input/video.mp4 --verbose
-  ukrainian-voice-transcriber transcribe input/video.mp4 --model gemini-2.5-flash
-  ukrainian-voice-transcriber version`, appName, buildVersion),
+  voice-transcriber transcribe input/video.mp4
+  voice-transcriber transcribe input/recording.wav
+  voice-transcriber transcribe input/video.mp4 -o output.txt
+  voice-transcriber transcribe input/video.mp4 --verbose
+  voice-transcriber transcribe input/video.mp4 --model gemini-2.5-flash
+  voice-transcriber transcribe input/video.mp4 --language uk
+  voice-transcriber version`, appName, buildVersion),
 	SilenceUsage: true,
 }
 
@@ -57,7 +59,7 @@ Examples:
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() error {
 	if err := rootCmd.Execute(); err != nil {
-		return fmt.Errorf("command execution failed: %w", err)
+		return fmt.Errorf("executing root command: %w", err)
 	}
 
 	return nil
@@ -67,6 +69,10 @@ func init() {
 	// Global flags
 	rootCmd.PersistentFlags().BoolVarP(&globalConfig.Verbose, "verbose", "v", false, "Enable verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&globalConfig.Quiet, "quiet", "q", false, "Suppress all output except results")
+
+	// Language selection
+	rootCmd.PersistentFlags().StringVar(&globalConfig.Language, "language", "auto",
+		"Language for transcription: 'auto' for automatic detection, or ISO 639-1 code (e.g. uk, en, de)")
 
 	// Gemini model selection
 	rootCmd.PersistentFlags().StringVar(&globalConfig.GeminiModel, "model", gemini.DefaultModel,

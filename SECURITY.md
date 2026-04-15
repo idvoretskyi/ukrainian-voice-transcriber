@@ -18,14 +18,14 @@ Use one of the following channels:
 
 ### GitHub Private Vulnerability Reporting (preferred)
 
-Open a [private security advisory](https://github.com/idvoretskyi/ukrainian-voice-transcriber/security/advisories/new)
+Open a [private security advisory](https://github.com/idvoretskyi/voice-transcriber/security/advisories/new)
 directly in this repository. GitHub keeps the report private until a fix is
 published.
 
 ### Email
 
 Send details to **ihor@dvoretskyi.com** with the subject line:
-`[SECURITY] ukrainian-voice-transcriber: <brief description>`
+`[SECURITY] voice-transcriber: <brief description>`
 
 Please include:
 
@@ -56,7 +56,7 @@ The following tools run automatically on every push and pull request:
 | [Dependency Review](https://github.com/actions/dependency-review-action) | New vulnerable dependencies introduced in PRs |
 
 SARIF results from Trivy, gosec, and CodeQL are uploaded to
-[GitHub Code Scanning](https://github.com/idvoretskyi/ukrainian-voice-transcriber/security/code-scanning).
+[GitHub Code Scanning](https://github.com/idvoretskyi/voice-transcriber/security/code-scanning).
 
 ## Scope
 

@@ -1,4 +1,4 @@
-// Ukrainian Voice Transcriber
+// Voice Transcriber
 // Copyright (c) 2025 Ihor Dvoretskyi
 //
 // Licensed under MIT License
@@ -16,7 +16,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/idvoretskyi/ukrainian-voice-transcriber/internal/transcriber"
+	"github.com/idvoretskyi/voice-transcriber/internal/transcriber"
 )
 
 var outputFile string
@@ -29,7 +29,10 @@ var sanitizeRe = regexp.MustCompile(`[^\p{L}\p{N}_\-.]`)
 var transcribeCmd = &cobra.Command{
 	Use:   "transcribe [media-file]",
 	Short: "Transcribe a video or audio file to text",
-	Long: `Transcribe a video or audio file to Ukrainian text using Google Gemini.
+	Long: `Transcribe a video or audio file to text using Google Gemini.
+
+Language is detected automatically from the audio by default.
+Use --language to specify an ISO 639-1 code (e.g. uk, en, de).
 
 Supported input formats:
   Video: mp4, mkv, mov, avi, wmv, flv, ts, mpeg, 3gp (audio extracted via FFmpeg)
@@ -102,7 +105,7 @@ Supported input formats:
 
 // sanitizeFilename removes special characters and replaces spaces with underscores
 // to create a safe filename for use in the filesystem.
-// Preserves Unicode letters (including Cyrillic) for Ukrainian filenames.
+// Preserves Unicode letters (including multilingual scripts) for internationalized filenames.
 func sanitizeFilename(filename string) string {
 	filename = strings.ReplaceAll(filename, " ", "_")
 	filename = sanitizeRe.ReplaceAllString(filename, "")

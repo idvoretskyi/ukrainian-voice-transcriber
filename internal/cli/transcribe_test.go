@@ -1,4 +1,4 @@
-// Ukrainian Voice Transcriber
+// Voice Transcriber
 // Copyright (c) 2025 Ihor Dvoretskyi
 //
 // Licensed under MIT License
@@ -8,7 +8,7 @@ package cli_test
 import (
 	"testing"
 
-	"github.com/idvoretskyi/ukrainian-voice-transcriber/internal/cli"
+	"github.com/idvoretskyi/voice-transcriber/internal/cli"
 )
 
 func TestSanitizeFilename(t *testing.T) {
