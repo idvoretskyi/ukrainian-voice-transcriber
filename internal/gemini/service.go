@@ -12,7 +12,7 @@ import (
 	"regexp"
 	"strings"
 
-	"cloud.google.com/go/vertexai/genai"
+	"google.golang.org/genai"
 
 	"github.com/idvoretskyi/voice-transcriber/pkg/config"
 )
@@ -23,8 +23,9 @@ const (
 	// most cost-effective model with explicit audio/ASR quality improvements.
 	DefaultModel = "gemini-3.1-flash-lite-preview"
 
-	// DefaultLocation is the default Vertex AI region.
-	DefaultLocation = "us-central1"
+	// DefaultLocation is the default Vertex AI location.
+	// Gemini 3.x models are only available on the global endpoint.
+	DefaultLocation = "global"
 
 	// autoLang is the sentinel value meaning automatic language detection.
 	autoLang = "auto"
@@ -63,27 +64,30 @@ Do not translate, summarize, or modify the content in any way.`
 
 // Service handles Gemini transcription via Vertex AI.
 type Service struct {
-	client    *genai.Client
-	config    *config.Config
-	projectID string
+	client *genai.Client
+	config *config.Config
 }
 
 // NewService creates a new Gemini service and initializes the Vertex AI client.
+// The client uses Application Default Credentials automatically.
 func NewService(ctx context.Context, cfg *config.Config, projectID string) (*Service, error) {
 	location := cfg.GCPLocation
 	if location == "" {
 		location = DefaultLocation
 	}
 
-	client, err := genai.NewClient(ctx, projectID, location)
+	client, err := genai.NewClient(ctx, &genai.ClientConfig{
+		Project:  projectID,
+		Location: location,
+		Backend:  genai.BackendVertexAI,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Vertex AI client: %w", err)
 	}
 
 	return &Service{
-		client:    client,
-		config:    cfg,
-		projectID: projectID,
+		client: client,
+		config: cfg,
 	}, nil
 }
 
@@ -101,21 +105,18 @@ func (s *Service) TranscribeAudio(ctx context.Context, audioData []byte, mimeTyp
 			model, formatBytes(len(audioData)))
 	}
 
-	gm := s.client.GenerativeModel(model)
-
-	// Build the request: text prompt + audio blob
-	prompt := genai.Text(buildPrompt(s.config.Language))
-	audioBlob := genai.Blob{
-		MIMEType: mimeType,
-		Data:     audioData,
+	parts := []*genai.Part{
+		{Text: buildPrompt(s.config.Language)},
+		{InlineData: &genai.Blob{MIMEType: mimeType, Data: audioData}},
 	}
+	contents := []*genai.Content{{Role: "user", Parts: parts}}
 
-	resp, err := gm.GenerateContent(ctx, prompt, audioBlob)
+	resp, err := s.client.Models.GenerateContent(ctx, model, contents, nil)
 	if err != nil {
 		return "", fmt.Errorf("gemini generation failed: %w", err)
 	}
 
-	transcript := extractText(resp)
+	transcript := strings.TrimSpace(resp.Text())
 	if transcript == "" {
 		return "", fmt.Errorf("gemini returned empty transcript")
 	}
@@ -127,40 +128,6 @@ func (s *Service) TranscribeAudio(ctx context.Context, audioData []byte, mimeTyp
 	return transcript, nil
 }
 
-// Close closes the Vertex AI client.
-func (s *Service) Close() error {
-	if s.client != nil {
-		if err := s.client.Close(); err != nil {
-			return fmt.Errorf("closing vertex AI client: %w", err)
-		}
-	}
-
-	return nil
-}
-
-// extractText pulls all text parts from a GenerateContentResponse.
-func extractText(resp *genai.GenerateContentResponse) string {
-	if resp == nil {
-		return ""
-	}
-
-	var sb strings.Builder
-
-	for _, cand := range resp.Candidates {
-		if cand.Content == nil {
-			continue
-		}
-
-		for _, part := range cand.Content.Parts {
-			if t, ok := part.(genai.Text); ok {
-				sb.WriteString(string(t))
-			}
-		}
-	}
-
-	return strings.TrimSpace(sb.String())
-}
-
 // formatBytes returns a human-readable byte size string.
 func formatBytes(n int) string {
 	const unit = 1024
@@ -169,6 +136,7 @@ func formatBytes(n int) string {
 	}
 
 	div, exp := unit, 0
+
 	for v := n / unit; v >= unit; v /= unit {
 		div *= unit
 		exp++

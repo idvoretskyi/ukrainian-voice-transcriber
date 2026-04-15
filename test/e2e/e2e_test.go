@@ -242,8 +242,8 @@ func TestFlagDefaults(t *testing.T) {
 			want: "gemini-3.1-flash-lite-preview",
 		},
 		{
-			name: "location default is us-central1",
-			want: "us-central1",
+			name: "location default is global",
+			want: `(default "global")`,
 		},
 	}
 

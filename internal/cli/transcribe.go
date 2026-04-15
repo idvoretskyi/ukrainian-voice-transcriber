@@ -47,12 +47,6 @@ Supported input formats:
 			return fmt.Errorf("initialization failed: %w", err)
 		}
 
-		defer func() {
-			if closeErr := t.Close(); closeErr != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "Warning: Failed to close transcriber: %v\n", closeErr)
-			}
-		}()
-
 		// Transcribe file (input validation is performed inside TranscribeLocalFile)
 		result := t.TranscribeLocalFile(context.Background(), mediaFile)
 

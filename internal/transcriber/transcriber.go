@@ -147,14 +147,3 @@ func (t *Transcriber) TranscribeLocalFile(ctx context.Context, inputPath string)
 		ProcessingTime: processingTime,
 	}
 }
-
-// Close releases resources held by the Transcriber.
-func (t *Transcriber) Close() error {
-	if t.geminiService != nil {
-		if err := t.geminiService.Close(); err != nil {
-			return fmt.Errorf("closing gemini service: %w", err)
-		}
-	}
-
-	return nil
-}
