@@ -10,6 +10,7 @@
 package e2e_test
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -88,7 +89,8 @@ func run(t *testing.T, env []string, args ...string) (string, string, int) {
 	var exitCode int
 
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			exitCode = exitErr.ExitCode()
 		} else {
 			t.Fatalf("unexpected error running binary: %v", err)

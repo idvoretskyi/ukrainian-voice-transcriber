@@ -3,7 +3,6 @@
 //
 // Licensed under MIT License
 
-// Package cli provides command-line interface functionality.
 package cli
 
 import (
@@ -36,19 +35,21 @@ Use --language to specify an ISO 639-1 code (e.g. uk, en, de).
 
 Supported input formats:
   Video: mp4, mkv, mov, avi, wmv, flv, ts, mpeg, 3gp (audio extracted via FFmpeg)
-  Audio: wav, mp3, flac, ogg, m4a, aac, webm (sent directly to Gemini, no FFmpeg needed)`,
+  Audio: wav, mp3, flac, ogg, m4a, aac, pcm, webm (sent directly to Gemini, no FFmpeg needed)`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
 		mediaFile := args[0]
 
 		// Initialize transcriber
-		t, err := transcriber.New(&globalConfig)
+		ctx := context.Background()
+
+		t, err := transcriber.New(ctx, &globalConfig)
 		if err != nil {
 			return fmt.Errorf("initialization failed: %w", err)
 		}
 
 		// Transcribe file (input validation is performed inside TranscribeLocalFile)
-		result := t.TranscribeLocalFile(context.Background(), mediaFile)
+		result := t.TranscribeLocalFile(ctx, mediaFile)
 
 		if !result.Success {
 			return fmt.Errorf("transcription failed: %s", result.Error)

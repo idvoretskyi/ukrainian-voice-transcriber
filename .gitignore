@@ -1,7 +1,6 @@
 # Binaries
-ukrainian-voice-transcriber
 voice-transcriber
-/transcriber
+ukrainian-voice-transcriber
 *.exe
 
 # Build artifacts

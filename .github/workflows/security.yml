@@ -15,7 +15,7 @@ permissions:
   pull-requests: write
 
 env:
-  GO_VERSION: '1.25'
+  GO_VERSION: '1.25.9'
 
 jobs:
   # Combined security analysis with matrix strategy
@@ -57,14 +57,14 @@ jobs:
       run: |
         case "${{ matrix.tool }}" in
           gosec)
-            go install github.com/securego/gosec/v2/cmd/gosec@latest
+            go install github.com/securego/gosec/v2/cmd/gosec@v2.21.4
             echo "$HOME/go/bin" >> $GITHUB_PATH
             ;;
           trivy)
             # Trivy will be installed by the action
             ;;
           govulncheck)
-            go install golang.org/x/vuln/cmd/govulncheck@latest
+            go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
             echo "$HOME/go/bin" >> $GITHUB_PATH
             ;;
         esac
@@ -82,7 +82,6 @@ jobs:
             ${{ matrix.command }}
             ;;
         esac
-      continue-on-error: true
 
     - name: Run Trivy vulnerability scanner
       if: matrix.tool == 'trivy'

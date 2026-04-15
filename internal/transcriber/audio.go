@@ -3,7 +3,6 @@
 //
 // Licensed under MIT License
 
-// Package transcriber provides audio transcription functionality.
 package transcriber
 
 import (
@@ -17,6 +16,14 @@ import (
 	"time"
 
 	"github.com/idvoretskyi/voice-transcriber/pkg/config"
+)
+
+const (
+	// ffmpegTimeout is the maximum time allowed for a single FFmpeg extraction.
+	ffmpegTimeout = 30 * time.Minute
+
+	// maxFileSize is the maximum accepted input file size (10 GB).
+	maxFileSize = 10 * 1024 * 1024 * 1024
 )
 
 // InputType represents the kind of media file provided by the user.
@@ -43,7 +50,7 @@ var audioExtensions = map[string]string{
 }
 
 // classifyInputFile determines whether the path is a native audio file or a
-// video file that needs FFmpeg extraction.  It returns the InputType and, for
+// video file that needs FFmpeg extraction. It returns the InputType and, for
 // audio files, the MIME type string required by the Gemini API.
 func classifyInputFile(inputPath string) (InputType, string) {
 	ext := strings.ToLower(filepath.Ext(inputPath))
@@ -66,8 +73,7 @@ type PreparedAudio struct {
 // prepareAudio reads the input file, extracting audio via FFmpeg when the
 // input is a video, and returns a PreparedAudio ready to pass to the Gemini
 // service.
-func prepareAudio(inputPath string, cfg *config.Config) (*PreparedAudio, error) {
-	// Validate path first
+func prepareAudio(ctx context.Context, inputPath string, cfg *config.Config) (*PreparedAudio, error) {
 	cleanPath, err := validateAndSanitizeVideoPath(inputPath)
 	if err != nil {
 		return nil, err
@@ -77,7 +83,6 @@ func prepareAudio(inputPath string, cfg *config.Config) (*PreparedAudio, error) 
 
 	switch inputType {
 	case InputTypeAudio:
-		// Read audio bytes directly — no FFmpeg needed.
 		logVerbose(cfg, "Audio file detected (%s), skipping FFmpeg extraction", mimeType)
 
 		data, err := os.ReadFile(cleanPath) // #nosec G304 -- cleanPath validated above
@@ -88,12 +93,11 @@ func prepareAudio(inputPath string, cfg *config.Config) (*PreparedAudio, error) 
 		return &PreparedAudio{
 			Data:     data,
 			MIMEType: mimeType,
-			Cleanup:  func() {}, // nothing to clean up
+			Cleanup:  func() {},
 		}, nil
 
 	case InputTypeVideo:
-		// Extract audio via FFmpeg to a temporary WAV file, then read it.
-		audioPath, err := extractAudio(cleanPath, cfg)
+		audioPath, err := extractAudio(ctx, cleanPath, cfg)
 		if err != nil {
 			return nil, err
 		}
@@ -116,28 +120,25 @@ func prepareAudio(inputPath string, cfg *config.Config) (*PreparedAudio, error) 
 		}, nil
 
 	default:
+		// unreachable unless InputType is extended
 		return nil, fmt.Errorf("unsupported input type for %q", cleanPath)
 	}
 }
 
 // extractAudio extracts audio from a video file using FFmpeg.
-func extractAudio(videoPath string, cfg *config.Config) (string, error) {
-	// Create a context with timeout for FFmpeg operation (30 minutes max)
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+func extractAudio(ctx context.Context, videoPath string, cfg *config.Config) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, ffmpegTimeout)
 	defer cancel()
 
 	logVerbose(cfg, "Extracting audio from video: %s", videoPath)
 
-	// Find full path to FFmpeg executable for security
 	ffmpegPath, err := exec.LookPath("ffmpeg")
 	if err != nil {
-		return "", fmt.Errorf("FFmpeg not found. Please install FFmpeg first")
+		return "", fmt.Errorf("ffmpeg not found; install ffmpeg first: %w", err)
 	}
 
-	// Create temporary audio file
 	audioPath := generateAudioPath(videoPath)
 
-	// Run FFmpeg and verify output
 	if err := runFFmpegCommand(ctx, ffmpegPath, videoPath, audioPath, cfg); err != nil {
 		return "", err
 	}
@@ -160,8 +161,7 @@ func validateAndSanitizeVideoPath(inputPath string) (string, error) {
 		return "", fmt.Errorf("not a regular file: %s", inputPath)
 	}
 
-	// 10 GB limit — enough for multi-hour videos
-	if fileInfo.Size() > 10*1024*1024*1024 {
+	if fileInfo.Size() > maxFileSize {
 		return "", fmt.Errorf("file too large (>10GB): %s", inputPath)
 	}
 
@@ -183,7 +183,7 @@ func runFFmpegCommand(ctx context.Context, ffmpegPath, videoPath, audioPath stri
 		"-acodec", "pcm_s16le",
 		"-ar", "16000",
 		"-ac", "1",
-		"-y", // overwrite output file
+		"-y",
 		audioPath,
 	)
 
@@ -195,11 +195,11 @@ func runFFmpegCommand(ctx context.Context, ffmpegPath, videoPath, audioPath stri
 	}
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("FFmpeg failed: %v, stderr: %s", err, stderr.String())
+		return fmt.Errorf("ffmpeg failed: %v, stderr: %s", err, stderr.String())
 	}
 
 	if _, err := os.Stat(audioPath); err != nil {
-		return fmt.Errorf("FFmpeg did not create output file: %w", err)
+		return fmt.Errorf("ffmpeg did not create output file: %w", err)
 	}
 
 	return nil

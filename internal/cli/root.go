@@ -15,9 +15,7 @@ import (
 	"github.com/idvoretskyi/voice-transcriber/pkg/config"
 )
 
-const (
-	appName = "Voice Transcriber"
-)
+const appName = "Voice Transcriber"
 
 var globalConfig config.Config
 
