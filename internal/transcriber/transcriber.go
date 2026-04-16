@@ -119,7 +119,11 @@ func (t *Transcriber) TranscribeLocalFile(ctx context.Context, inputPath string)
 		}
 	}
 
-	defer prepared.Cleanup()
+	defer func() {
+		if err := prepared.Close(); err != nil {
+			logVerbose(t.config, "Warning: %v", err)
+		}
+	}()
 
 	transcript, err := t.geminiService.TranscribeAudio(ctx, prepared.Data, prepared.MIMEType)
 	if err != nil {

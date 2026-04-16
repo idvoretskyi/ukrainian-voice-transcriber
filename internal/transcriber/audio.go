@@ -62,12 +62,29 @@ func classifyInputFile(inputPath string) (InputType, string) {
 	return InputTypeVideo, ""
 }
 
-// PreparedAudio holds the audio bytes and MIME type ready to send to Gemini,
-// plus a cleanup function to remove any temporary file that was created.
+// PreparedAudio holds the audio bytes and MIME type ready to send to Gemini.
+// Call Close() to remove any temporary file that was created during preparation.
 type PreparedAudio struct {
 	Data     []byte
 	MIMEType string
-	Cleanup  func()
+	// tempPath is the path of a temporary file to remove on Close, or empty
+	// when no temporary file was created (e.g. native audio input).
+	tempPath string
+}
+
+// Close removes the temporary audio file if one was created during preparation.
+// It is safe to call Close on a PreparedAudio that has no temporary file.
+// Implements io.Closer.
+func (p *PreparedAudio) Close() error {
+	if p.tempPath == "" {
+		return nil
+	}
+
+	if err := os.Remove(p.tempPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to remove temp audio file %q: %w", p.tempPath, err)
+	}
+
+	return nil
 }
 
 // prepareAudio reads the input file, extracting audio via FFmpeg when the
@@ -93,7 +110,6 @@ func prepareAudio(ctx context.Context, inputPath string, cfg *config.Config) (*P
 		return &PreparedAudio{
 			Data:     data,
 			MIMEType: mimeType,
-			Cleanup:  func() {},
 		}, nil
 
 	case InputTypeVideo:
@@ -112,11 +128,7 @@ func prepareAudio(ctx context.Context, inputPath string, cfg *config.Config) (*P
 		return &PreparedAudio{
 			Data:     data,
 			MIMEType: "audio/wav",
-			Cleanup: func() {
-				if removeErr := os.Remove(audioPath); removeErr != nil && !os.IsNotExist(removeErr) {
-					logVerbose(cfg, "Warning: failed to remove temp audio file: %v", removeErr)
-				}
-			},
+			tempPath: audioPath,
 		}, nil
 
 	default:
