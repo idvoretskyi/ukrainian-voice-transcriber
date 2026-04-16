@@ -20,10 +20,11 @@ var (
 )
 
 func main() {
-	// Set version information for CLI
-	cli.SetVersion(version, buildDate, gitCommit)
-
-	if err := cli.Execute(); err != nil {
+	if err := cli.Execute(cli.VersionInfo{
+		Version: version,
+		Date:    buildDate,
+		Commit:  gitCommit,
+	}); err != nil {
 		os.Exit(1)
 	}
 }

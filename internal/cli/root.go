@@ -22,7 +22,8 @@ const appName = "Voice Transcriber"
 
 // NewRootCmd builds and returns the root Cobra command with all subcommands
 // wired in. cfg is the shared configuration that persistent flags write into.
-func NewRootCmd(cfg *config.Config) *cobra.Command {
+// info carries build-time version metadata; empty fields fall back to defaults.
+func NewRootCmd(cfg *config.Config, info VersionInfo) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "voice-transcriber",
 		Short: "AI-powered media-to-text transcription with automatic language detection",
@@ -69,18 +70,18 @@ Examples:
 		"Vertex AI location (e.g. global, us-central1, europe-west4); Gemini 3.x models require global")
 
 	rootCmd.AddCommand(newTranscribeCmd(cfg))
-	rootCmd.AddCommand(newVersionCmd())
+	rootCmd.AddCommand(newVersionCmd(info))
 
 	return rootCmd
 }
 
-// Execute builds the command tree and runs it.
+// Execute builds the command tree with the provided version info and runs it.
 // This is called by main.main().
-func Execute() error {
+func Execute(info VersionInfo) error {
 	cfg := config.FromEnv()
-	root := NewRootCmd(cfg)
+	root := NewRootCmd(cfg, info)
 	// Wire the runtime version into Cobra's built-in --version flag.
-	root.Version = buildVersion
+	root.Version = info.withDefaults().Version
 
 	if err := root.Execute(); err != nil {
 		return fmt.Errorf("executing root command: %w", err)

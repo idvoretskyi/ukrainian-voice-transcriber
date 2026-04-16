@@ -90,28 +90,20 @@ func TestSanitizeFilename(t *testing.T) {
 	}
 }
 
-// TestSetVersion verifies that SetVersion updates the build version and that
-// NewRootCmd wires it into cobra's --version flag.
-func TestSetVersion(t *testing.T) {
+// TestNewRootCmdVersion verifies that NewRootCmd wires VersionInfo into
+// cobra's --version flag correctly, without mutating any package globals.
+func TestNewRootCmdVersion(t *testing.T) {
 	t.Parallel()
 
-	cli.SetVersion("9.8.7", "2025-01-01T00:00:00Z", "abc1234")
-
-	if got := cli.GetBuildVersion(); got != "9.8.7" {
-		t.Errorf("GetBuildVersion() = %q; want %q", got, "9.8.7")
-	}
-
-	// NewRootCmd should pick up the version set above.
+	info := cli.VersionInfo{Version: "9.8.7", Date: "2025-01-01T00:00:00Z", Commit: "abc1234"}
 	cfg := &config.Config{}
-	root := cli.NewRootCmd(cfg)
-	root.Version = cli.GetBuildVersion()
+	root := cli.NewRootCmd(cfg, info)
+	// Execute wires root.Version; replicate that here.
+	root.Version = info.Version
 
 	if root.Version != "9.8.7" {
 		t.Errorf("rootCmd.Version = %q; want %q", root.Version, "9.8.7")
 	}
-
-	// Restore to default so other tests are not affected.
-	t.Cleanup(func() { cli.SetVersion("dev", "unknown", "unknown") })
 }
 
 // TestRootCmdHelpDoesNotContainVersion verifies that the Long description no
@@ -119,12 +111,9 @@ func TestSetVersion(t *testing.T) {
 func TestRootCmdHelpDoesNotContainVersion(t *testing.T) {
 	t.Parallel()
 
-	cli.SetVersion("99.0.0", "2025-01-01T00:00:00Z", "deadbeef")
-
-	t.Cleanup(func() { cli.SetVersion("dev", "unknown", "unknown") })
-
+	info := cli.VersionInfo{Version: "99.0.0", Date: "2025-01-01T00:00:00Z", Commit: "deadbeef"}
 	cfg := &config.Config{}
-	root := cli.NewRootCmd(cfg)
+	root := cli.NewRootCmd(cfg, info)
 
 	if strings.Contains(root.Long, "99.0.0") {
 		t.Errorf("rootCmd.Long contains version string %q; it should be version-free", "99.0.0")
