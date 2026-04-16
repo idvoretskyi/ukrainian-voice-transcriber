@@ -161,6 +161,11 @@ func extractAudio(ctx context.Context, videoPath string, logger *slog.Logger) (s
 	}
 
 	if err := runFFmpegCommand(ctx, ffmpegPath, videoPath, audioPath, logger); err != nil {
+		if removeErr := os.Remove(audioPath); removeErr != nil && !os.IsNotExist(removeErr) {
+			logger.WarnContext(ctx, "failed to remove temp audio file after ffmpeg error",
+				slog.String("path", audioPath), slog.Any("error", removeErr))
+		}
+
 		return "", err
 	}
 

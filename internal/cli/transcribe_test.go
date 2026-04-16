@@ -6,6 +6,7 @@
 package cli_test
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 
@@ -91,18 +92,26 @@ func TestSanitizeFilename(t *testing.T) {
 }
 
 // TestNewRootCmdVersion verifies that NewRootCmd wires VersionInfo into
-// cobra's --version flag correctly, without mutating any package globals.
+// cobra's --version flag correctly by executing the command and checking output.
 func TestNewRootCmdVersion(t *testing.T) {
 	t.Parallel()
 
 	info := cli.VersionInfo{Version: "9.8.7", Date: "2025-01-01T00:00:00Z", Commit: "abc1234"}
 	cfg := &config.Config{}
 	root := cli.NewRootCmd(cfg, info)
-	// Execute wires root.Version; replicate that here.
+	// Wire version exactly as Execute() does.
 	root.Version = info.Version
 
-	if root.Version != "9.8.7" {
-		t.Errorf("rootCmd.Version = %q; want %q", root.Version, "9.8.7")
+	var buf bytes.Buffer
+	root.SetOut(&buf)
+	root.SetArgs([]string{"--version"})
+
+	if err := root.Execute(); err != nil {
+		t.Fatalf("root.Execute() returned unexpected error: %v", err)
+	}
+
+	if got := buf.String(); !strings.Contains(got, "9.8.7") {
+		t.Errorf("--version output = %q; want it to contain %q", got, "9.8.7")
 	}
 }
 

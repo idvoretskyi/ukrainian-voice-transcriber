@@ -93,13 +93,13 @@ func Execute(info VersionInfo) error {
 // newLogger returns a slog.Logger appropriate for the current config:
 //   - Quiet: all output discarded
 //   - Verbose: Debug level to stderr
-//   - Default: Info level to stderr
+//   - Default: Warn level to stderr (suppresses Info-level operational logs)
 func newLogger(cfg *config.Config) *slog.Logger {
 	if cfg.Quiet {
 		return slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
 
-	level := slog.LevelInfo
+	level := slog.LevelWarn
 	if cfg.Verbose {
 		level = slog.LevelDebug
 	}
