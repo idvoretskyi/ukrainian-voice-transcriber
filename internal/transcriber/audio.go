@@ -232,7 +232,7 @@ func runFFmpegCommand(ctx context.Context, ffmpegPath, videoPath, audioPath stri
 	}
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("ffmpeg failed: %v, stderr: %s", err, stderr.String())
+		return fmt.Errorf("ffmpeg failed: %w (stderr: %s)", err, stderr.String())
 	}
 
 	if _, err := os.Stat(audioPath); err != nil {

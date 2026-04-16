@@ -16,6 +16,24 @@ import (
 // iso639Re matches exactly two lowercase ASCII letters (ISO 639-1 code).
 var iso639Re = regexp.MustCompile(`^[a-z]{2}$`)
 
+// NormalizeLanguage normalizes and validates a language string.
+// It trims and lowercases the input, then returns:
+//   - code="", auto=true  when input is empty or "auto" (automatic detection)
+//   - code=lang, auto=false when input is a valid two-letter ISO 639-1 code
+//   - code="", auto=true  for any invalid input (falls back to automatic detection)
+func NormalizeLanguage(language string) (code string, auto bool) {
+	lang := strings.ToLower(strings.TrimSpace(language))
+	if lang == "" || lang == "auto" {
+		return "", true
+	}
+
+	if !iso639Re.MatchString(lang) {
+		return "", true
+	}
+
+	return lang, false
+}
+
 // Config holds application configuration.
 type Config struct {
 	Verbose bool
@@ -51,16 +69,20 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("--verbose and --quiet are mutually exclusive")
 	}
 
-	lang := strings.ToLower(strings.TrimSpace(c.Language))
-	if lang != "" && lang != "auto" && !iso639Re.MatchString(lang) {
-		return fmt.Errorf(
-			"invalid --language %q: must be 'auto', empty, or a two-letter ISO 639-1 code (e.g. 'uk', 'en')",
-			c.Language,
-		)
+	if raw := strings.ToLower(strings.TrimSpace(c.Language)); raw != "" && raw != "auto" {
+		if _, auto := NormalizeLanguage(c.Language); auto {
+			// NormalizeLanguage fell back to auto — means it was invalid
+			return fmt.Errorf(
+				"invalid --language %q: must be 'auto', empty, or a two-letter ISO 639-1 code (e.g. 'uk', 'en')",
+				c.Language,
+			)
+		}
 	}
 
-	if c.GeminiModel != "" && strings.TrimSpace(c.GeminiModel) == "" {
+	if trimmed := strings.TrimSpace(c.GeminiModel); c.GeminiModel != "" && trimmed == "" {
 		return fmt.Errorf("--model must not be blank")
+	} else if trimmed != "" {
+		c.GeminiModel = trimmed
 	}
 
 	return nil

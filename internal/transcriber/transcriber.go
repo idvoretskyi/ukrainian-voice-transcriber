@@ -60,12 +60,12 @@ func getProjectIDFromGcloud(ctx context.Context) (string, error) {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("failed to get project ID from gcloud: %v, stderr: %s", err, stderr.String())
+		return "", fmt.Errorf("failed to get project ID from gcloud: %w (stderr: %s)", err, stderr.String())
 	}
 
 	projectID := strings.TrimSpace(stdout.String())
 	if projectID == "" {
-		return "", fmt.Errorf("no project ID configured in gcloud. Run: gcloud config set project PROJECT_ID")
+		return "", fmt.Errorf("no project ID configured in gcloud; run: gcloud config set project PROJECT_ID")
 	}
 
 	return projectID, nil
@@ -79,8 +79,14 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Transcr
 		logger = slog.Default()
 	}
 
+	t := &Transcriber{
+		config:    cfg,
+		logger:    logger,
+		resolveID: getProjectIDFromGcloud,
+	}
+
 	// Prefer GCPProject already on the config (e.g. from FromEnv), then env
-	// var, then gcloud CLI.
+	// var, then gcloud CLI (via the injected resolver).
 	projectID := cfg.GCPProject
 	if projectID == "" {
 		projectID = os.Getenv("GOOGLE_CLOUD_PROJECT")
@@ -89,7 +95,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Transcr
 	if projectID == "" {
 		var err error
 
-		projectID, err = getProjectIDFromGcloud(ctx)
+		projectID, err = t.resolveID(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve GCP project ID: %w\n\n"+
 				"Set it with one of:\n"+
@@ -105,12 +111,9 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Transcr
 		return nil, fmt.Errorf("failed to initialize Gemini service: %w", err)
 	}
 
-	return &Transcriber{
-		config:    cfg,
-		backend:   backend,
-		logger:    logger,
-		resolveID: getProjectIDFromGcloud,
-	}, nil
+	t.backend = backend
+
+	return t, nil
 }
 
 // TranscribeLocalFile transcribes a local video or audio file.

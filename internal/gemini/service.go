@@ -10,7 +10,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"regexp"
 	"strings"
 
 	"google.golang.org/genai"
@@ -28,15 +27,9 @@ const (
 	// Gemini 3.x models are only available on the global endpoint.
 	DefaultLocation = "global"
 
-	// autoLang is the sentinel value meaning automatic language detection.
-	autoLang = "auto"
-
 	// roleUser is the Gemini content role for user turns.
 	roleUser = "user"
 )
-
-// iso639Re matches exactly two lowercase ASCII letters (ISO 639-1 code).
-var iso639Re = regexp.MustCompile(`^[a-z]{2}$`)
 
 // AudioTranscriber is the interface for sending audio to a transcription backend.
 // It is satisfied by *Service and can be replaced in tests by a stub.
@@ -47,36 +40,29 @@ type AudioTranscriber interface {
 // buildPrompt returns the transcription prompt for the given language.
 // When language is "auto" or empty, Gemini detects the language automatically.
 // Otherwise language must be a two-letter ISO 639-1 code (e.g. "uk", "en", "de").
-// Inputs are normalized (trimmed, lowercased) and validated; invalid values fall
-// back to automatic detection.
+// Inputs are normalized via config.NormalizeLanguage; invalid values fall back
+// to automatic detection.
 func buildPrompt(language string) string {
 	const suffix = `
 Output only the transcription text with no commentary, labels, or metadata.
 Preserve natural sentence structure and add punctuation where appropriate.
 Do not translate, summarize, or modify the content in any way.`
 
-	lang := strings.ToLower(strings.TrimSpace(language))
+	code, auto := config.NormalizeLanguage(language)
 
-	// Validate: accept "auto", empty string, or a two-letter ISO 639-1 code.
-	if lang != "" && lang != autoLang {
-		if !iso639Re.MatchString(lang) {
-			// Invalid input — fall back to automatic detection.
-			lang = autoLang
-		}
-	}
-
-	if lang == "" || lang == autoLang {
+	if auto {
 		return "Transcribe the following audio recording verbatim in its original spoken language." + suffix
 	}
 
-	return "Transcribe the following audio recording verbatim in " + lang + "." + suffix
+	return "Transcribe the following audio recording verbatim in " + code + "." + suffix
 }
 
 // Service handles Gemini transcription via Vertex AI.
 type Service struct {
-	client *genai.Client
-	config *config.Config
-	logger *slog.Logger
+	client   *genai.Client
+	model    string
+	language string
+	logger   *slog.Logger
 }
 
 // NewService creates a new Gemini service and initializes the Vertex AI client.
@@ -92,6 +78,11 @@ func NewService(ctx context.Context, cfg *config.Config, projectID string, logge
 		location = DefaultLocation
 	}
 
+	model := cfg.GeminiModel
+	if model == "" {
+		model = DefaultModel
+	}
+
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
 		Project:  projectID,
 		Location: location,
@@ -102,9 +93,10 @@ func NewService(ctx context.Context, cfg *config.Config, projectID string, logge
 	}
 
 	return &Service{
-		client: client,
-		config: cfg,
-		logger: logger,
+		client:   client,
+		model:    model,
+		language: cfg.Language,
+		logger:   logger,
 	}, nil
 }
 
@@ -112,23 +104,18 @@ func NewService(ctx context.Context, cfg *config.Config, projectID string, logge
 // mimeType must be one of: audio/wav, audio/mp3, audio/flac, audio/ogg,
 // audio/m4a, audio/aac, audio/webm, audio/pcm.
 func (s *Service) TranscribeAudio(ctx context.Context, audioData []byte, mimeType string) (string, error) {
-	model := s.config.GeminiModel
-	if model == "" {
-		model = DefaultModel
-	}
-
 	s.logger.InfoContext(ctx, "sending audio to Gemini",
-		slog.String("model", model),
+		slog.String("model", s.model),
 		slog.String("size", formatBytes(len(audioData))),
 	)
 
 	parts := []*genai.Part{
-		{Text: buildPrompt(s.config.Language)},
+		{Text: buildPrompt(s.language)},
 		{InlineData: &genai.Blob{MIMEType: mimeType, Data: audioData}},
 	}
 	contents := []*genai.Content{{Role: roleUser, Parts: parts}}
 
-	resp, err := s.client.Models.GenerateContent(ctx, model, contents, nil)
+	resp, err := s.client.Models.GenerateContent(ctx, s.model, contents, nil)
 	if err != nil {
 		return "", fmt.Errorf("gemini generation failed: %w", err)
 	}
