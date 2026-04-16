@@ -8,24 +8,25 @@ package cli
 
 import (
 	"fmt"
+	"io"
+	"log/slog"
+	"os"
 
 	"github.com/spf13/cobra"
 
+	"github.com/idvoretskyi/voice-transcriber/internal/config"
 	"github.com/idvoretskyi/voice-transcriber/internal/gemini"
-	"github.com/idvoretskyi/voice-transcriber/pkg/config"
 )
 
 const appName = "Voice Transcriber"
 
-var globalConfig config.Config
-
-// rootCmd represents the base command when called without any subcommands.
-var rootCmd = &cobra.Command{
-	Use:   "voice-transcriber",
-	Short: "AI-powered media-to-text transcription with automatic language detection",
-	Long: fmt.Sprintf(`%s v%s
-
-Multilingual media-to-text transcription using Google Gemini via Vertex AI.
+// NewRootCmd builds and returns the root Cobra command with all subcommands
+// wired in. cfg is the shared configuration that persistent flags write into.
+func NewRootCmd(cfg *config.Config) *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "voice-transcriber",
+		Short: "AI-powered media-to-text transcription with automatic language detection",
+		Long: `Multilingual media-to-text transcription using Google Gemini via Vertex AI.
 Language is detected automatically from the audio by default.
 
 Features:
@@ -49,38 +50,58 @@ Examples:
   voice-transcriber transcribe input/video.mp4 --verbose
   voice-transcriber transcribe input/video.mp4 --model gemini-3-flash-preview
   voice-transcriber transcribe input/video.mp4 --language uk
-  voice-transcriber version`, appName, buildVersion),
-	SilenceUsage: true,
+  voice-transcriber version`,
+		SilenceUsage: true,
+		// Validate config flags before any subcommand runs.
+		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+			return cfg.Validate()
+		},
+	}
+
+	// Persistent flags — write directly into the shared cfg.
+	rootCmd.PersistentFlags().BoolVarP(&cfg.Verbose, "verbose", "v", false, "Enable verbose output")
+	rootCmd.PersistentFlags().BoolVarP(&cfg.Quiet, "quiet", "q", false, "Suppress all output except results")
+	rootCmd.PersistentFlags().StringVar(&cfg.Language, "language", "auto",
+		"Language for transcription: 'auto' for automatic detection, or ISO 639-1 code (e.g. uk, en, de)")
+	rootCmd.PersistentFlags().StringVar(&cfg.GeminiModel, "model", gemini.DefaultModel,
+		"Gemini model to use for transcription (e.g. gemini-3.1-flash-lite-preview, gemini-3-flash-preview)")
+	rootCmd.PersistentFlags().StringVar(&cfg.GCPLocation, "location", gemini.DefaultLocation,
+		"Vertex AI location (e.g. global, us-central1, europe-west4); Gemini 3.x models require global")
+
+	rootCmd.AddCommand(newTranscribeCmd(cfg))
+	rootCmd.AddCommand(newVersionCmd())
+
+	return rootCmd
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
+// Execute builds the command tree and runs it.
+// This is called by main.main().
 func Execute() error {
-	if err := rootCmd.Execute(); err != nil {
+	cfg := config.FromEnv()
+	root := NewRootCmd(cfg)
+	// Wire the runtime version into Cobra's built-in --version flag.
+	root.Version = buildVersion
+
+	if err := root.Execute(); err != nil {
 		return fmt.Errorf("executing root command: %w", err)
 	}
 
 	return nil
 }
 
-func init() {
-	// Global flags
-	rootCmd.PersistentFlags().BoolVarP(&globalConfig.Verbose, "verbose", "v", false, "Enable verbose output")
-	rootCmd.PersistentFlags().BoolVarP(&globalConfig.Quiet, "quiet", "q", false, "Suppress all output except results")
+// newLogger returns a slog.Logger appropriate for the current config:
+//   - Quiet: all output discarded
+//   - Verbose: Debug level to stderr
+//   - Default: Info level to stderr
+func newLogger(cfg *config.Config) *slog.Logger {
+	if cfg.Quiet {
+		return slog.New(slog.NewTextHandler(io.Discard, nil))
+	}
 
-	// Language selection
-	rootCmd.PersistentFlags().StringVar(&globalConfig.Language, "language", "auto",
-		"Language for transcription: 'auto' for automatic detection, or ISO 639-1 code (e.g. uk, en, de)")
+	level := slog.LevelInfo
+	if cfg.Verbose {
+		level = slog.LevelDebug
+	}
 
-	// Gemini model selection
-	rootCmd.PersistentFlags().StringVar(&globalConfig.GeminiModel, "model", gemini.DefaultModel,
-		"Gemini model to use for transcription (e.g. gemini-3.1-flash-lite-preview, gemini-3-flash-preview)")
-
-	// Vertex AI region
-	rootCmd.PersistentFlags().StringVar(&globalConfig.GCPLocation, "location", gemini.DefaultLocation,
-		"Vertex AI location (e.g. global, us-central1, europe-west4); Gemini 3.x models require global")
-
-	// Add subcommands
-	rootCmd.AddCommand(transcribeCmd)
-	rootCmd.AddCommand(versionCmd)
+	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
 }

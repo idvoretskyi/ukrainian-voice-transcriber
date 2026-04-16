@@ -6,11 +6,14 @@
 package transcriber_test
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/idvoretskyi/voice-transcriber/internal/config"
 	"github.com/idvoretskyi/voice-transcriber/internal/transcriber"
 )
 
@@ -177,4 +180,94 @@ func TestClassifyInputFile(t *testing.T) {
 			}
 		})
 	}
+}
+
+// stubBackend is a fake AudioTranscriber for unit testing TranscribeLocalFile.
+type stubBackend struct {
+	transcript string
+	err        error
+}
+
+func (s *stubBackend) TranscribeAudio(_ context.Context, _ []byte, _ string) (string, error) {
+	return s.transcript, s.err
+}
+
+// TestTranscribeLocalFileWithFakeBackend exercises TranscribeLocalFile end-to-end
+// using a stub AudioTranscriber so no real Gemini call is made.
+func TestTranscribeLocalFileWithFakeBackend(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success path returns result", func(t *testing.T) {
+		t.Parallel()
+
+		// Create a real (empty) audio file so validateInputPath passes.
+		f, err := os.CreateTemp(t.TempDir(), "test-audio-*.wav")
+		if err != nil {
+			t.Fatalf("creating temp file: %v", err)
+		}
+
+		if err := f.Close(); err != nil {
+			t.Fatalf("closing temp file: %v", err)
+		}
+
+		cfg := &config.Config{Quiet: true}
+		stub := &stubBackend{transcript: "hello world test"}
+		tr := transcriber.NewForTesting(cfg, stub, nil)
+
+		result, err := tr.TranscribeLocalFile(context.Background(), f.Name())
+		if err != nil {
+			t.Fatalf("TranscribeLocalFile() unexpected error: %v", err)
+		}
+
+		if result.Text != "hello world test" {
+			t.Errorf("result.Text = %q; want %q", result.Text, "hello world test")
+		}
+
+		if result.WordCount != 3 {
+			t.Errorf("result.WordCount = %d; want 3", result.WordCount)
+		}
+
+		if result.ProcessingTime == 0 {
+			t.Error("result.ProcessingTime = 0; want > 0")
+		}
+	})
+
+	t.Run("backend error is propagated", func(t *testing.T) {
+		t.Parallel()
+
+		f, err := os.CreateTemp(t.TempDir(), "test-audio-*.wav")
+		if err != nil {
+			t.Fatalf("creating temp file: %v", err)
+		}
+
+		if err := f.Close(); err != nil {
+			t.Fatalf("closing temp file: %v", err)
+		}
+
+		cfg := &config.Config{Quiet: true}
+		stub := &stubBackend{err: errors.New("gemini unavailable")}
+		tr := transcriber.NewForTesting(cfg, stub, nil)
+
+		_, err = tr.TranscribeLocalFile(context.Background(), f.Name())
+		if err == nil {
+			t.Fatal("TranscribeLocalFile() expected error, got nil")
+		}
+
+		if !strings.Contains(err.Error(), "gemini unavailable") {
+			t.Errorf("error %q does not mention 'gemini unavailable'", err.Error())
+		}
+	})
+
+	t.Run("non-existent file returns error", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := &config.Config{Quiet: true}
+		stub := &stubBackend{transcript: "should not be reached"}
+		tr := transcriber.NewForTesting(cfg, stub, nil)
+
+		_, err := tr.TranscribeLocalFile(context.Background(), "/nonexistent/audio.wav")
+		if err == nil {
+			t.Fatal("TranscribeLocalFile() expected error for missing file, got nil")
+		}
+	})
 }

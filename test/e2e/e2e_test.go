@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -52,9 +53,18 @@ func buildBinary() (string, func(), error) {
 
 	bin := filepath.Join(dir, "voice-transcriber")
 
+	// Resolve the repo root relative to this source file so the build works
+	// regardless of the directory from which `go test` is invoked.
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", func() {}, fmt.Errorf("runtime.Caller failed")
+	}
+
+	repoRoot := filepath.Join(filepath.Dir(thisFile), "..", "..")
+
 	//nolint:gosec // arguments are hard-coded, not user-controlled
 	cmd := exec.Command("go", "build", "-o", bin, "./cmd/voice-transcriber")
-	cmd.Dir = filepath.Join("..", "..")
+	cmd.Dir = repoRoot
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 

@@ -9,13 +9,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/idvoretskyi/voice-transcriber/pkg/config"
 )
 
 const (
@@ -24,6 +23,12 @@ const (
 
 	// maxFileSize is the maximum accepted input file size (10 GB).
 	maxFileSize = 10 * 1024 * 1024 * 1024
+
+	// ffmpegSampleRate is the PCM sample rate used for audio extraction.
+	ffmpegSampleRate = "16000"
+
+	// ffmpegChannels is the number of audio channels (mono) used for extraction.
+	ffmpegChannels = "1"
 )
 
 // InputType represents the kind of media file provided by the user.
@@ -90,7 +95,7 @@ func (p *PreparedAudio) Close() error {
 // prepareAudio reads the input file, extracting audio via FFmpeg when the
 // input is a video, and returns a PreparedAudio ready to pass to the Gemini
 // service.
-func prepareAudio(ctx context.Context, inputPath string, cfg *config.Config) (*PreparedAudio, error) {
+func prepareAudio(ctx context.Context, inputPath string, logger *slog.Logger) (*PreparedAudio, error) {
 	cleanPath, err := validateInputPath(inputPath)
 	if err != nil {
 		return nil, err
@@ -100,7 +105,8 @@ func prepareAudio(ctx context.Context, inputPath string, cfg *config.Config) (*P
 
 	switch inputType {
 	case InputTypeAudio:
-		logVerbose(cfg, "Audio file detected (%s), skipping FFmpeg extraction", mimeType)
+		logger.InfoContext(ctx, "audio file detected, skipping FFmpeg extraction",
+			slog.String("mime", mimeType))
 
 		data, err := os.ReadFile(cleanPath) // #nosec G304 -- cleanPath validated above
 		if err != nil {
@@ -113,7 +119,7 @@ func prepareAudio(ctx context.Context, inputPath string, cfg *config.Config) (*P
 		}, nil
 
 	case InputTypeVideo:
-		audioPath, err := extractAudio(ctx, cleanPath, cfg)
+		audioPath, err := extractAudio(ctx, cleanPath, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -138,11 +144,11 @@ func prepareAudio(ctx context.Context, inputPath string, cfg *config.Config) (*P
 }
 
 // extractAudio extracts audio from a video file using FFmpeg.
-func extractAudio(ctx context.Context, videoPath string, cfg *config.Config) (string, error) {
+func extractAudio(ctx context.Context, videoPath string, logger *slog.Logger) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, ffmpegTimeout)
 	defer cancel()
 
-	logVerbose(cfg, "Extracting audio from video: %s", videoPath)
+	logger.InfoContext(ctx, "extracting audio from video", slog.String("path", videoPath))
 
 	ffmpegPath, err := exec.LookPath("ffmpeg")
 	if err != nil {
@@ -154,11 +160,11 @@ func extractAudio(ctx context.Context, videoPath string, cfg *config.Config) (st
 		return "", fmt.Errorf("failed to create temp audio file: %w", err)
 	}
 
-	if err := runFFmpegCommand(ctx, ffmpegPath, videoPath, audioPath, cfg); err != nil {
+	if err := runFFmpegCommand(ctx, ffmpegPath, videoPath, audioPath, logger); err != nil {
 		return "", err
 	}
 
-	logVerbose(cfg, "Audio extracted to: %s", audioPath)
+	logger.InfoContext(ctx, "audio extracted", slog.String("output", audioPath))
 
 	return audioPath, nil
 }
@@ -206,18 +212,20 @@ func generateAudioPath(inputPath string) (string, error) {
 }
 
 // runFFmpegCommand executes FFmpeg and verifies the output was created.
-func runFFmpegCommand(ctx context.Context, ffmpegPath, videoPath, audioPath string, cfg *config.Config) error {
+func runFFmpegCommand(ctx context.Context, ffmpegPath, videoPath, audioPath string, logger *slog.Logger) error {
 	cmd := exec.CommandContext(ctx, ffmpegPath, // #nosec G204 -- ffmpegPath resolved via exec.LookPath
 		"-i", videoPath,
 		"-acodec", "pcm_s16le",
-		"-ar", "16000",
-		"-ac", "1",
+		"-ar", ffmpegSampleRate,
+		"-ac", ffmpegChannels,
 		"-y",
 		audioPath,
 	)
 
 	var stderr strings.Builder
-	if cfg.Verbose {
+
+	// Always capture stderr; tee to os.Stderr at debug level via slog when verbose.
+	if logger.Enabled(ctx, slog.LevelDebug) {
 		cmd.Stderr = io.MultiWriter(os.Stderr, &stderr)
 	} else {
 		cmd.Stderr = &stderr
