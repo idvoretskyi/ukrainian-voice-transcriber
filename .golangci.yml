@@ -40,4 +40,25 @@ linters:
       # Table-driven test functions are legitimately long; raise threshold.
       lines: 100
       statements: 80
+    goheader:
+      # All source files must carry the standard project header.
+      # Format (4 lines, no blank line between "Voice Transcriber" and Copyright):
+      #   // Voice Transcriber
+      #   // Copyright (c) 2025 Ihor Dvoretskyi
+      #   //
+      #   // Licensed under MIT License
+      template: |-
+        Voice Transcriber
+        Copyright (c) 2025 Ihor Dvoretskyi
+
+        Licensed under MIT License
+
+issues:
+  exclude-rules:
+    # export_test.go files intentionally use the non-test package name to expose
+    # internal symbols for white-box testing. The testpackage linter requires
+    # a separate _test package, which would defeat the purpose of these files.
+    - path: export_test\.go
+      linters:
+        - testpackage
 

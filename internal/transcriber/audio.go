@@ -192,14 +192,14 @@ func generateAudioPath(inputPath string) (string, error) {
 
 	f, err := os.CreateTemp("", pattern)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("creating temp audio file: %w", err)
 	}
 
 	// Close immediately; the file is only needed as a reserved path for FFmpeg.
 	if err := f.Close(); err != nil {
 		_ = os.Remove(f.Name())
 
-		return "", err
+		return "", fmt.Errorf("closing temp audio file: %w", err)
 	}
 
 	return f.Name(), nil

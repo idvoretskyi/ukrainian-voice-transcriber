@@ -18,11 +18,17 @@ func TestGenerateAudioPath(t *testing.T) {
 	t.Parallel()
 
 	inputPath := "/some/dir/my video file.mp4"
+
 	audioPath, err := transcriber.GenerateAudioPath(inputPath)
 	if err != nil {
 		t.Fatalf("GenerateAudioPath() unexpected error: %v", err)
 	}
-	defer os.Remove(audioPath)
+
+	defer func() {
+		if err := os.Remove(audioPath); err != nil && !os.IsNotExist(err) {
+			t.Errorf("failed to remove temp file %q: %v", audioPath, err)
+		}
+	}()
 
 	// Must be in the system temp dir
 	if !strings.HasPrefix(audioPath, os.TempDir()) {
@@ -45,7 +51,12 @@ func TestGenerateAudioPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateAudioPath() second call unexpected error: %v", err)
 	}
-	defer os.Remove(audioPath2)
+
+	defer func() {
+		if err := os.Remove(audioPath2); err != nil && !os.IsNotExist(err) {
+			t.Errorf("failed to remove temp file %q: %v", audioPath2, err)
+		}
+	}()
 
 	if audioPath == audioPath2 {
 		t.Errorf("GenerateAudioPath() returned identical paths on two calls: %q", audioPath)
