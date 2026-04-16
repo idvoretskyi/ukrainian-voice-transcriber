@@ -52,13 +52,12 @@ linters:
         Copyright (c) 2025 Ihor Dvoretskyi
 
         Licensed under MIT License
-
-issues:
-  exclude-rules:
-    # export_test.go files intentionally use the non-test package name to expose
-    # internal symbols for white-box testing. The testpackage linter requires
-    # a separate _test package, which would defeat the purpose of these files.
-    - path: export_test\.go
-      linters:
-        - testpackage
+  exclusions:
+    rules:
+      # export_test.go files intentionally use the non-test package name to expose
+      # internal symbols for white-box testing. The testpackage linter requires
+      # a separate _test package, which would defeat the purpose of these files.
+      - path: export_test\.go
+        linters:
+          - testpackage
 
