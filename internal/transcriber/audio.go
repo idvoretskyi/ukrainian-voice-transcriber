@@ -74,7 +74,7 @@ type PreparedAudio struct {
 // input is a video, and returns a PreparedAudio ready to pass to the Gemini
 // service.
 func prepareAudio(ctx context.Context, inputPath string, cfg *config.Config) (*PreparedAudio, error) {
-	cleanPath, err := validateAndSanitizeVideoPath(inputPath)
+	cleanPath, err := validateInputPath(inputPath)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,10 @@ func extractAudio(ctx context.Context, videoPath string, cfg *config.Config) (st
 		return "", fmt.Errorf("ffmpeg not found; install ffmpeg first: %w", err)
 	}
 
-	audioPath := generateAudioPath(videoPath)
+	audioPath, err := generateAudioPath(videoPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp audio file: %w", err)
+	}
 
 	if err := runFFmpegCommand(ctx, ffmpegPath, videoPath, audioPath, cfg); err != nil {
 		return "", err
@@ -148,8 +151,8 @@ func extractAudio(ctx context.Context, videoPath string, cfg *config.Config) (st
 	return audioPath, nil
 }
 
-// validateAndSanitizeVideoPath validates and sanitizes any input media path.
-func validateAndSanitizeVideoPath(inputPath string) (string, error) {
+// validateInputPath validates and sanitizes any input media path (audio or video).
+func validateInputPath(inputPath string) (string, error) {
 	inputPath = filepath.Clean(inputPath)
 
 	fileInfo, err := os.Stat(inputPath)
@@ -168,12 +171,26 @@ func validateAndSanitizeVideoPath(inputPath string) (string, error) {
 	return inputPath, nil
 }
 
-// generateAudioPath creates a unique WAV file path in the system temp directory.
-func generateAudioPath(inputPath string) string {
-	timestamp := time.Now().UnixNano()
+// generateAudioPath creates a unique WAV file path in the system temp directory
+// using os.CreateTemp to avoid any TOCTOU race between path generation and file creation.
+// The caller is responsible for removing the file when done.
+func generateAudioPath(inputPath string) (string, error) {
 	baseFileName := strings.TrimSuffix(filepath.Base(inputPath), filepath.Ext(inputPath))
+	pattern := baseFileName + "_*_audio.wav"
 
-	return filepath.Join(os.TempDir(), fmt.Sprintf("%s_%d_audio.wav", baseFileName, timestamp))
+	f, err := os.CreateTemp("", pattern)
+	if err != nil {
+		return "", err
+	}
+
+	// Close immediately; the file is only needed as a reserved path for FFmpeg.
+	if err := f.Close(); err != nil {
+		_ = os.Remove(f.Name())
+
+		return "", err
+	}
+
+	return f.Name(), nil
 }
 
 // runFFmpegCommand executes FFmpeg and verifies the output was created.

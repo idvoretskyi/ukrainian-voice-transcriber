@@ -7,11 +7,11 @@
 package transcriber
 
 // GenerateAudioPath exposes generateAudioPath for black-box tests.
-func GenerateAudioPath(inputPath string) string { return generateAudioPath(inputPath) }
+func GenerateAudioPath(inputPath string) (string, error) { return generateAudioPath(inputPath) }
 
-// ValidateAndSanitizeVideoPath exposes validateAndSanitizeVideoPath for black-box tests.
-func ValidateAndSanitizeVideoPath(inputPath string) (string, error) {
-	return validateAndSanitizeVideoPath(inputPath)
+// ValidateInputPath exposes validateInputPath for black-box tests.
+func ValidateInputPath(inputPath string) (string, error) {
+	return validateInputPath(inputPath)
 }
 
 // ClassifyInputFile exposes classifyInputFile for black-box tests.

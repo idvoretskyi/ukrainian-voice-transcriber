@@ -18,7 +18,11 @@ func TestGenerateAudioPath(t *testing.T) {
 	t.Parallel()
 
 	inputPath := "/some/dir/my video file.mp4"
-	audioPath := transcriber.GenerateAudioPath(inputPath)
+	audioPath, err := transcriber.GenerateAudioPath(inputPath)
+	if err != nil {
+		t.Fatalf("GenerateAudioPath() unexpected error: %v", err)
+	}
+	defer os.Remove(audioPath)
 
 	// Must be in the system temp dir
 	if !strings.HasPrefix(audioPath, os.TempDir()) {
@@ -36,20 +40,25 @@ func TestGenerateAudioPath(t *testing.T) {
 		t.Errorf("GenerateAudioPath() = %q; want base name %q in output", audioPath, base)
 	}
 
-	// Two calls must produce different paths (timestamp-based uniqueness)
-	audioPath2 := transcriber.GenerateAudioPath(inputPath)
+	// Two calls must produce different paths (os.CreateTemp uniqueness)
+	audioPath2, err := transcriber.GenerateAudioPath(inputPath)
+	if err != nil {
+		t.Fatalf("GenerateAudioPath() second call unexpected error: %v", err)
+	}
+	defer os.Remove(audioPath2)
+
 	if audioPath == audioPath2 {
 		t.Errorf("GenerateAudioPath() returned identical paths on two calls: %q", audioPath)
 	}
 }
 
-func TestValidateAndSanitizeVideoPath(t *testing.T) {
+func TestValidateInputPath(t *testing.T) {
 	t.Parallel()
 
 	t.Run("non-existent file returns error", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := transcriber.ValidateAndSanitizeVideoPath("/non/existent/file.mp4")
+		_, err := transcriber.ValidateInputPath("/non/existent/file.mp4")
 		if err == nil {
 			t.Error("expected error for non-existent file, got nil")
 		}
@@ -67,7 +76,7 @@ func TestValidateAndSanitizeVideoPath(t *testing.T) {
 			t.Fatalf("failed to close temp file: %v", err)
 		}
 
-		got, err := transcriber.ValidateAndSanitizeVideoPath(f.Name())
+		got, err := transcriber.ValidateInputPath(f.Name())
 		if err != nil {
 			t.Errorf("unexpected error for valid file: %v", err)
 		}
@@ -80,7 +89,7 @@ func TestValidateAndSanitizeVideoPath(t *testing.T) {
 	t.Run("directory is rejected", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := transcriber.ValidateAndSanitizeVideoPath(t.TempDir())
+		_, err := transcriber.ValidateInputPath(t.TempDir())
 		if err == nil {
 			t.Error("expected error for directory input, got nil")
 		}
@@ -103,7 +112,7 @@ func TestValidateAndSanitizeVideoPath(t *testing.T) {
 		dirty := filepath.Join(dir, ".", filepath.Base(f.Name()))
 		clean := filepath.Clean(dirty)
 
-		got, err := transcriber.ValidateAndSanitizeVideoPath(dirty)
+		got, err := transcriber.ValidateInputPath(dirty)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
