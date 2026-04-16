@@ -137,6 +137,7 @@ func TestClassifyInputFile(t *testing.T) {
 		{path: "recording.ogg", wantType: transcriber.InputTypeAudio, wantMIMENotEmpty: true},
 		{path: "recording.m4a", wantType: transcriber.InputTypeAudio, wantMIMENotEmpty: true},
 		{path: "recording.aac", wantType: transcriber.InputTypeAudio, wantMIMENotEmpty: true},
+		{path: "recording.webm", wantType: transcriber.InputTypeAudio, wantMIMENotEmpty: true},
 		{path: "video.mp4", wantType: transcriber.InputTypeVideo, wantMIMENotEmpty: false},
 		{path: "video.mkv", wantType: transcriber.InputTypeVideo, wantMIMENotEmpty: false},
 		{path: "video.mov", wantType: transcriber.InputTypeVideo, wantMIMENotEmpty: false},
