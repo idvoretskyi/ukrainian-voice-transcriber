@@ -20,6 +20,9 @@ import (
 
 var outputFile string
 
+// outputSeparatorWidth is the width of the separator line printed after transcription stats.
+const outputSeparatorWidth = 50
+
 // sanitizeRe matches characters not allowed in a sanitized filename.
 // \p{L} matches any Unicode letter (including Cyrillic), \p{N} any Unicode digit.
 var sanitizeRe = regexp.MustCompile(`[^\p{L}\p{N}_\-.]`)
@@ -61,7 +64,7 @@ Supported input formats:
 			fmt.Printf("   Words: %d\n", result.WordCount)
 			fmt.Printf("   Characters: %d\n", len(result.Text))
 			fmt.Printf("   Processing time: %v\n", result.ProcessingTime)
-			fmt.Println(strings.Repeat("-", 50))
+			fmt.Println(strings.Repeat("-", outputSeparatorWidth))
 		}
 
 		// Determine output path
