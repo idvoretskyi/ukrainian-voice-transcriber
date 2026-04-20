@@ -104,7 +104,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Transcr
 		}
 	}
 
-	logger.InfoContext(ctx, "resolved GCP project", slog.String("project", projectID))
+	logger.DebugContext(ctx, "resolved GCP project", slog.String("project", projectID))
 
 	backend, err := gemini.NewService(ctx, cfg, projectID, logger)
 	if err != nil {

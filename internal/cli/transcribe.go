@@ -70,7 +70,7 @@ func runTranscribe(cfg *config.Config, mediaFile, outputFile string) error {
 	}
 
 	if !cfg.Quiet {
-		fmt.Printf("\n📝 Transcription completed:\n")
+		fmt.Printf("\nTranscription completed:\n")
 		fmt.Printf("   Words: %d\n", result.WordCount)
 		fmt.Printf("   Characters: %d\n", len(result.Text))
 		fmt.Printf("   Processing time: %v\n", result.ProcessingTime)
@@ -99,7 +99,7 @@ func runTranscribe(cfg *config.Config, mediaFile, outputFile string) error {
 	}
 
 	if !cfg.Quiet {
-		fmt.Printf("✅ Transcript saved to: %s\n", transcriptPath)
+		fmt.Printf("Transcript saved to: %s\n", transcriptPath)
 	}
 
 	return nil

@@ -125,7 +125,7 @@ func (s *Service) TranscribeAudio(ctx context.Context, audioData []byte, mimeTyp
 		return "", fmt.Errorf("gemini returned empty transcript")
 	}
 
-	s.logger.InfoContext(ctx, "transcription received",
+	s.logger.DebugContext(ctx, "transcription received",
 		slog.Int("characters", len(transcript)),
 	)
 
