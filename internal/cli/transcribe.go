@@ -78,14 +78,7 @@ func runTranscribe(cfg *config.Config, mediaFile, outputFile string) error {
 	}
 
 	// Determine output path.
-	transcriptPath := outputFile
-	if transcriptPath == "" {
-		mediaBaseName := filepath.Base(mediaFile)
-		mediaNameWithoutExt := strings.TrimSuffix(mediaBaseName, filepath.Ext(mediaBaseName))
-		sanitizedName := sanitizeFilename(mediaNameWithoutExt)
-		outputSubDir := filepath.Join("output", sanitizedName)
-		transcriptPath = filepath.Join(outputSubDir, sanitizedName+".txt")
-	}
+	transcriptPath := resolveOutputPath(outputFile, mediaFile)
 
 	// Ensure the directory for the output file exists.
 	outputDir := filepath.Dir(transcriptPath)
@@ -117,4 +110,20 @@ func sanitizeFilename(filename string) string {
 	}
 
 	return filename
+}
+
+// resolveOutputPath returns the final transcript output path.
+// If outputFile is non-empty it is returned unchanged; otherwise a default
+// path of output/<sanitized-name>/<sanitized-name>.txt is derived from mediaFile.
+func resolveOutputPath(outputFile, mediaFile string) string {
+	if outputFile != "" {
+		return outputFile
+	}
+
+	mediaBaseName := filepath.Base(mediaFile)
+	mediaNameWithoutExt := strings.TrimSuffix(mediaBaseName, filepath.Ext(mediaBaseName))
+	sanitizedName := sanitizeFilename(mediaNameWithoutExt)
+	outputSubDir := filepath.Join("output", sanitizedName)
+
+	return filepath.Join(outputSubDir, sanitizedName+".txt")
 }

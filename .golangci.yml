@@ -35,6 +35,7 @@ linters:
     - decorder
     - gocognit
     - goheader
+    - errorlint
   settings:
     funlen:
       # Table-driven test functions are legitimately long; raise threshold.

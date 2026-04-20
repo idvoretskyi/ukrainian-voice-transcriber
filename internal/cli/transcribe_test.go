@@ -117,6 +117,7 @@ func TestNewRootCmdVersion(t *testing.T) {
 
 // TestRootCmdHelpDoesNotContainVersion verifies that the Long description no
 // longer bakes in the version string (H4 fix: version removed from --help).
+// It executes --help and checks the captured output, not just root.Long.
 func TestRootCmdHelpDoesNotContainVersion(t *testing.T) {
 	t.Parallel()
 
@@ -124,7 +125,77 @@ func TestRootCmdHelpDoesNotContainVersion(t *testing.T) {
 	cfg := &config.Config{}
 	root := cli.NewRootCmd(cfg, info)
 
-	if strings.Contains(root.Long, "99.0.0") {
-		t.Errorf("rootCmd.Long contains version string %q; it should be version-free", "99.0.0")
+	var buf bytes.Buffer
+	root.SetOut(&buf)
+	root.SetArgs([]string{"--help"})
+
+	// --help exits with code 0; Execute should not return an error.
+	if err := root.Execute(); err != nil {
+		t.Fatalf("root.Execute() --help returned unexpected error: %v", err)
+	}
+
+	if got := buf.String(); strings.Contains(got, "99.0.0") {
+		t.Errorf("--help output contains version string %q; it should be version-free", "99.0.0")
+	}
+}
+
+// TestResolveOutputPath verifies the default transcript-path derivation logic.
+func TestResolveOutputPath(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		outputFile string
+		mediaFile  string
+		want       string
+	}{
+		{
+			name:       "explicit output path returned unchanged",
+			outputFile: "/tmp/my-output.txt",
+			mediaFile:  "anything.mp4",
+			want:       "/tmp/my-output.txt",
+		},
+		{
+			name:       "default path derived from media filename",
+			outputFile: "",
+			mediaFile:  "lecture.mp4",
+			want:       "output/lecture/lecture.txt",
+		},
+		{
+			name:       "extension stripped and spaces sanitized",
+			outputFile: "",
+			mediaFile:  "my recording.wav",
+			want:       "output/my_recording/my_recording.txt",
+		},
+		{
+			name:       "nested media path — only basename used",
+			outputFile: "",
+			mediaFile:  "/some/deep/path/talk.mkv",
+			want:       "output/talk/talk.txt",
+		},
+		{
+			name:       "special chars removed from name",
+			outputFile: "",
+			mediaFile:  "hello!@world.mp4",
+			want:       "output/helloworld/helloworld.txt",
+		},
+		{
+			name:       "empty name after sanitization falls back to transcript",
+			outputFile: "",
+			mediaFile:  "!!!.mp4",
+			want:       "output/transcript/transcript.txt",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := cli.ResolveOutputPath(tc.outputFile, tc.mediaFile)
+			if got != tc.want {
+				t.Errorf("ResolveOutputPath(%q, %q) = %q; want %q",
+					tc.outputFile, tc.mediaFile, got, tc.want)
+			}
+		})
 	}
 }

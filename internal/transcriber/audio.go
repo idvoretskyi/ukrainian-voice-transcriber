@@ -126,7 +126,10 @@ func prepareAudio(ctx context.Context, inputPath string, logger *slog.Logger) (*
 
 		data, err := os.ReadFile(audioPath) // #nosec G304 -- audioPath from extractAudio
 		if err != nil {
-			_ = os.Remove(audioPath)
+			if removeErr := os.Remove(audioPath); removeErr != nil && !os.IsNotExist(removeErr) {
+				logger.WarnContext(ctx, "failed to remove temp audio file after read error",
+					slog.String("path", audioPath), slog.Any("error", removeErr))
+			}
 
 			return nil, fmt.Errorf("failed to read extracted audio: %w", err)
 		}
