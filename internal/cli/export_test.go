@@ -8,3 +8,6 @@ package cli
 
 // SanitizeFilename exposes sanitizeFilename for black-box tests.
 var SanitizeFilename = sanitizeFilename
+
+// ResolveOutputPath exposes resolveOutputPath for black-box tests.
+var ResolveOutputPath = resolveOutputPath

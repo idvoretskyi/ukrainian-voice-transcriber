@@ -9,13 +9,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/idvoretskyi/voice-transcriber/pkg/config"
 )
 
 const (
@@ -24,6 +23,12 @@ const (
 
 	// maxFileSize is the maximum accepted input file size (10 GB).
 	maxFileSize = 10 * 1024 * 1024 * 1024
+
+	// ffmpegSampleRate is the PCM sample rate used for audio extraction.
+	ffmpegSampleRate = "16000"
+
+	// ffmpegChannels is the number of audio channels (mono) used for extraction.
+	ffmpegChannels = "1"
 )
 
 // InputType represents the kind of media file provided by the user.
@@ -62,19 +67,36 @@ func classifyInputFile(inputPath string) (InputType, string) {
 	return InputTypeVideo, ""
 }
 
-// PreparedAudio holds the audio bytes and MIME type ready to send to Gemini,
-// plus a cleanup function to remove any temporary file that was created.
+// PreparedAudio holds the audio bytes and MIME type ready to send to Gemini.
+// Call Close() to remove any temporary file that was created during preparation.
 type PreparedAudio struct {
 	Data     []byte
 	MIMEType string
-	Cleanup  func()
+	// tempPath is the path of a temporary file to remove on Close, or empty
+	// when no temporary file was created (e.g. native audio input).
+	tempPath string
+}
+
+// Close removes the temporary audio file if one was created during preparation.
+// It is safe to call Close on a PreparedAudio that has no temporary file.
+// Implements io.Closer.
+func (p *PreparedAudio) Close() error {
+	if p.tempPath == "" {
+		return nil
+	}
+
+	if err := os.Remove(p.tempPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to remove temp audio file %q: %w", p.tempPath, err)
+	}
+
+	return nil
 }
 
 // prepareAudio reads the input file, extracting audio via FFmpeg when the
 // input is a video, and returns a PreparedAudio ready to pass to the Gemini
 // service.
-func prepareAudio(ctx context.Context, inputPath string, cfg *config.Config) (*PreparedAudio, error) {
-	cleanPath, err := validateAndSanitizeVideoPath(inputPath)
+func prepareAudio(ctx context.Context, inputPath string, logger *slog.Logger) (*PreparedAudio, error) {
+	cleanPath, err := validateInputPath(inputPath)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +105,8 @@ func prepareAudio(ctx context.Context, inputPath string, cfg *config.Config) (*P
 
 	switch inputType {
 	case InputTypeAudio:
-		logVerbose(cfg, "Audio file detected (%s), skipping FFmpeg extraction", mimeType)
+		logger.InfoContext(ctx, "audio file detected, skipping FFmpeg extraction",
+			slog.String("mime", mimeType))
 
 		data, err := os.ReadFile(cleanPath) // #nosec G304 -- cleanPath validated above
 		if err != nil {
@@ -93,18 +116,20 @@ func prepareAudio(ctx context.Context, inputPath string, cfg *config.Config) (*P
 		return &PreparedAudio{
 			Data:     data,
 			MIMEType: mimeType,
-			Cleanup:  func() {},
 		}, nil
 
 	case InputTypeVideo:
-		audioPath, err := extractAudio(ctx, cleanPath, cfg)
+		audioPath, err := extractAudio(ctx, cleanPath, logger)
 		if err != nil {
 			return nil, err
 		}
 
 		data, err := os.ReadFile(audioPath) // #nosec G304 -- audioPath from extractAudio
 		if err != nil {
-			_ = os.Remove(audioPath)
+			if removeErr := os.Remove(audioPath); removeErr != nil && !os.IsNotExist(removeErr) {
+				logger.WarnContext(ctx, "failed to remove temp audio file after read error",
+					slog.String("path", audioPath), slog.Any("error", removeErr))
+			}
 
 			return nil, fmt.Errorf("failed to read extracted audio: %w", err)
 		}
@@ -112,11 +137,7 @@ func prepareAudio(ctx context.Context, inputPath string, cfg *config.Config) (*P
 		return &PreparedAudio{
 			Data:     data,
 			MIMEType: "audio/wav",
-			Cleanup: func() {
-				if removeErr := os.Remove(audioPath); removeErr != nil && !os.IsNotExist(removeErr) {
-					logVerbose(cfg, "Warning: failed to remove temp audio file: %v", removeErr)
-				}
-			},
+			tempPath: audioPath,
 		}, nil
 
 	default:
@@ -126,30 +147,38 @@ func prepareAudio(ctx context.Context, inputPath string, cfg *config.Config) (*P
 }
 
 // extractAudio extracts audio from a video file using FFmpeg.
-func extractAudio(ctx context.Context, videoPath string, cfg *config.Config) (string, error) {
+func extractAudio(ctx context.Context, videoPath string, logger *slog.Logger) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, ffmpegTimeout)
 	defer cancel()
 
-	logVerbose(cfg, "Extracting audio from video: %s", videoPath)
+	logger.InfoContext(ctx, "extracting audio from video", slog.String("path", videoPath))
 
 	ffmpegPath, err := exec.LookPath("ffmpeg")
 	if err != nil {
 		return "", fmt.Errorf("ffmpeg not found; install ffmpeg first: %w", err)
 	}
 
-	audioPath := generateAudioPath(videoPath)
+	audioPath, err := generateAudioPath(videoPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp audio file: %w", err)
+	}
 
-	if err := runFFmpegCommand(ctx, ffmpegPath, videoPath, audioPath, cfg); err != nil {
+	if err := runFFmpegCommand(ctx, ffmpegPath, videoPath, audioPath, logger); err != nil {
+		if removeErr := os.Remove(audioPath); removeErr != nil && !os.IsNotExist(removeErr) {
+			logger.WarnContext(ctx, "failed to remove temp audio file after ffmpeg error",
+				slog.String("path", audioPath), slog.Any("error", removeErr))
+		}
+
 		return "", err
 	}
 
-	logVerbose(cfg, "Audio extracted to: %s", audioPath)
+	logger.InfoContext(ctx, "audio extracted", slog.String("output", audioPath))
 
 	return audioPath, nil
 }
 
-// validateAndSanitizeVideoPath validates and sanitizes any input media path.
-func validateAndSanitizeVideoPath(inputPath string) (string, error) {
+// validateInputPath validates and sanitizes any input media path (audio or video).
+func validateInputPath(inputPath string) (string, error) {
 	inputPath = filepath.Clean(inputPath)
 
 	fileInfo, err := os.Stat(inputPath)
@@ -168,34 +197,50 @@ func validateAndSanitizeVideoPath(inputPath string) (string, error) {
 	return inputPath, nil
 }
 
-// generateAudioPath creates a unique WAV file path in the system temp directory.
-func generateAudioPath(inputPath string) string {
-	timestamp := time.Now().UnixNano()
+// generateAudioPath creates a unique WAV file path in the system temp directory
+// using os.CreateTemp to avoid any TOCTOU race between path generation and file creation.
+// The caller is responsible for removing the file when done.
+func generateAudioPath(inputPath string) (string, error) {
 	baseFileName := strings.TrimSuffix(filepath.Base(inputPath), filepath.Ext(inputPath))
+	pattern := baseFileName + "_*_audio.wav"
 
-	return filepath.Join(os.TempDir(), fmt.Sprintf("%s_%d_audio.wav", baseFileName, timestamp))
+	f, err := os.CreateTemp("", pattern)
+	if err != nil {
+		return "", fmt.Errorf("creating temp audio file: %w", err)
+	}
+
+	// Close immediately; the file is only needed as a reserved path for FFmpeg.
+	if err := f.Close(); err != nil {
+		_ = os.Remove(f.Name())
+
+		return "", fmt.Errorf("closing temp audio file: %w", err)
+	}
+
+	return f.Name(), nil
 }
 
 // runFFmpegCommand executes FFmpeg and verifies the output was created.
-func runFFmpegCommand(ctx context.Context, ffmpegPath, videoPath, audioPath string, cfg *config.Config) error {
+func runFFmpegCommand(ctx context.Context, ffmpegPath, videoPath, audioPath string, logger *slog.Logger) error {
 	cmd := exec.CommandContext(ctx, ffmpegPath, // #nosec G204 -- ffmpegPath resolved via exec.LookPath
 		"-i", videoPath,
 		"-acodec", "pcm_s16le",
-		"-ar", "16000",
-		"-ac", "1",
+		"-ar", ffmpegSampleRate,
+		"-ac", ffmpegChannels,
 		"-y",
 		audioPath,
 	)
 
 	var stderr strings.Builder
-	if cfg.Verbose {
+
+	// Always capture stderr; tee to os.Stderr at debug level via slog when verbose.
+	if logger.Enabled(ctx, slog.LevelDebug) {
 		cmd.Stderr = io.MultiWriter(os.Stderr, &stderr)
 	} else {
 		cmd.Stderr = &stderr
 	}
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("ffmpeg failed: %v, stderr: %s", err, stderr.String())
+		return fmt.Errorf("ffmpeg failed: %w (stderr: %s)", err, stderr.String())
 	}
 
 	if _, err := os.Stat(audioPath); err != nil {

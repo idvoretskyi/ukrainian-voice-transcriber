@@ -9,30 +9,36 @@ package transcriber
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
 
+	"github.com/idvoretskyi/voice-transcriber/internal/config"
 	"github.com/idvoretskyi/voice-transcriber/internal/gemini"
-	"github.com/idvoretskyi/voice-transcriber/pkg/config"
 )
 
 const gcloudTimeout = 10 * time.Second
 
-// TranscriptionResult represents the result of a transcription.
+// TranscriptionResult holds the output of a successful transcription.
+// On failure, TranscribeLocalFile returns a non-nil error instead.
 type TranscriptionResult struct {
 	Text           string
-	Error          string
 	ProcessingTime time.Duration
 	WordCount      int
-	Success        bool
 }
+
+// projectIDResolver is the function type used to obtain a GCP project ID
+// at runtime. The default implementation calls gcloud; tests can inject a stub.
+type projectIDResolver func(ctx context.Context) (string, error)
 
 // Transcriber handles the main transcription logic.
 type Transcriber struct {
-	config        *config.Config
-	geminiService *gemini.Service
+	config    *config.Config
+	backend   gemini.AudioTranscriber
+	logger    *slog.Logger
+	resolveID projectIDResolver
 }
 
 // getProjectIDFromGcloud gets the current project ID from gcloud.
@@ -54,24 +60,42 @@ func getProjectIDFromGcloud(ctx context.Context) (string, error) {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("failed to get project ID from gcloud: %v, stderr: %s", err, stderr.String())
+		return "", fmt.Errorf("failed to get project ID from gcloud: %w (stderr: %s)", err, stderr.String())
 	}
 
 	projectID := strings.TrimSpace(stdout.String())
 	if projectID == "" {
-		return "", fmt.Errorf("no project ID configured in gcloud. Run: gcloud config set project PROJECT_ID")
+		return "", fmt.Errorf("no project ID configured in gcloud; run: gcloud config set project PROJECT_ID")
 	}
 
 	return projectID, nil
 }
 
-// New creates a new Transcriber instance, initializing the Gemini service.
-func New(ctx context.Context, cfg *config.Config) (*Transcriber, error) {
-	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
+// New creates a new Transcriber instance, resolving the GCP project ID and
+// initializing the Gemini service.
+// If logger is nil, slog.Default() is used.
+func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Transcriber, error) {
+	if logger == nil {
+		logger = slog.Default()
+	}
+
+	t := &Transcriber{
+		config:    cfg,
+		logger:    logger,
+		resolveID: getProjectIDFromGcloud,
+	}
+
+	// Prefer GCPProject already on the config (e.g. from FromEnv), then env
+	// var, then gcloud CLI (via the injected resolver).
+	projectID := cfg.GCPProject
+	if projectID == "" {
+		projectID = os.Getenv("GOOGLE_CLOUD_PROJECT")
+	}
+
 	if projectID == "" {
 		var err error
 
-		projectID, err = getProjectIDFromGcloud(ctx)
+		projectID, err = t.resolveID(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve GCP project ID: %w\n\n"+
 				"Set it with one of:\n"+
@@ -80,59 +104,45 @@ func New(ctx context.Context, cfg *config.Config) (*Transcriber, error) {
 		}
 	}
 
-	if !cfg.Quiet {
-		fmt.Printf("ℹ️  Project: %s\n", projectID)
-	}
+	logger.DebugContext(ctx, "resolved GCP project", slog.String("project", projectID))
 
-	geminiService, err := gemini.NewService(ctx, cfg, projectID)
+	backend, err := gemini.NewService(ctx, cfg, projectID, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize Gemini service: %w", err)
 	}
 
-	return &Transcriber{
-		config:        cfg,
-		geminiService: geminiService,
-	}, nil
-}
+	t.backend = backend
 
-// logVerbose logs a message only when verbose mode is enabled and quiet is not set.
-func logVerbose(cfg *config.Config, format string, args ...any) {
-	if cfg.Verbose && !cfg.Quiet {
-		fmt.Printf("ℹ️  "+format+"\n", args...)
-	}
+	return t, nil
 }
 
 // TranscribeLocalFile transcribes a local video or audio file.
 // ctx controls the lifetime of the entire operation.
-func (t *Transcriber) TranscribeLocalFile(ctx context.Context, inputPath string) *TranscriptionResult {
+// It returns a *TranscriptionResult on success, or a non-nil error on failure.
+func (t *Transcriber) TranscribeLocalFile(ctx context.Context, inputPath string) (*TranscriptionResult, error) {
 	startTime := time.Now()
 
-	if !t.config.Quiet {
-		fmt.Printf("ℹ️  Processing: %s\n", inputPath)
+	t.logger.InfoContext(ctx, "processing file", slog.String("path", inputPath))
+
+	prepared, err := prepareAudio(ctx, inputPath, t.logger)
+	if err != nil {
+		return nil, fmt.Errorf("preparing audio: %w", err)
 	}
 
-	prepared, err := prepareAudio(ctx, inputPath, t.config)
-	if err != nil {
-		return &TranscriptionResult{
-			Success: false,
-			Error:   err.Error(),
+	defer func() {
+		if closeErr := prepared.Close(); closeErr != nil {
+			t.logger.WarnContext(ctx, "failed to remove temp audio file", slog.Any("error", closeErr))
 		}
-	}
+	}()
 
-	defer prepared.Cleanup()
-
-	transcript, err := t.geminiService.TranscribeAudio(ctx, prepared.Data, prepared.MIMEType)
+	transcript, err := t.backend.TranscribeAudio(ctx, prepared.Data, prepared.MIMEType)
 	if err != nil {
-		return &TranscriptionResult{
-			Success: false,
-			Error:   err.Error(),
-		}
+		return nil, fmt.Errorf("transcribing audio: %w", err)
 	}
 
 	return &TranscriptionResult{
 		Text:           transcript,
-		Success:        true,
 		WordCount:      len(strings.Fields(transcript)),
 		ProcessingTime: time.Since(startTime),
-	}
+	}, nil
 }

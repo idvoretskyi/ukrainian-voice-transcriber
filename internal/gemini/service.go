@@ -9,12 +9,12 @@ package gemini
 import (
 	"context"
 	"fmt"
-	"regexp"
+	"log/slog"
 	"strings"
 
 	"google.golang.org/genai"
 
-	"github.com/idvoretskyi/voice-transcriber/pkg/config"
+	"github.com/idvoretskyi/voice-transcriber/internal/config"
 )
 
 const (
@@ -27,53 +27,60 @@ const (
 	// Gemini 3.x models are only available on the global endpoint.
 	DefaultLocation = "global"
 
-	// autoLang is the sentinel value meaning automatic language detection.
-	autoLang = "auto"
+	// roleUser is the Gemini content role for user turns.
+	roleUser = "user"
 )
 
-// iso639Re matches exactly two lowercase ASCII letters (ISO 639-1 code).
-var iso639Re = regexp.MustCompile(`^[a-z]{2}$`)
+// AudioTranscriber is the interface for sending audio to a transcription backend.
+// It is satisfied by *Service and can be replaced in tests by a stub.
+type AudioTranscriber interface {
+	TranscribeAudio(ctx context.Context, audioData []byte, mimeType string) (string, error)
+}
 
 // buildPrompt returns the transcription prompt for the given language.
 // When language is "auto" or empty, Gemini detects the language automatically.
 // Otherwise language must be a two-letter ISO 639-1 code (e.g. "uk", "en", "de").
-// Inputs are normalized (trimmed, lowercased) and validated; invalid values fall
-// back to automatic detection.
+// Inputs are normalized via config.NormalizeLanguage; invalid values fall back
+// to automatic detection.
 func buildPrompt(language string) string {
 	const suffix = `
 Output only the transcription text with no commentary, labels, or metadata.
 Preserve natural sentence structure and add punctuation where appropriate.
 Do not translate, summarize, or modify the content in any way.`
 
-	lang := strings.ToLower(strings.TrimSpace(language))
+	code, auto := config.NormalizeLanguage(language)
 
-	// Validate: accept "auto", empty string, or a two-letter ISO 639-1 code.
-	if lang != "" && lang != autoLang {
-		if !iso639Re.MatchString(lang) {
-			// Invalid input — fall back to automatic detection.
-			lang = autoLang
-		}
-	}
-
-	if lang == "" || lang == autoLang {
+	if auto {
 		return "Transcribe the following audio recording verbatim in its original spoken language." + suffix
 	}
 
-	return "Transcribe the following audio recording verbatim in " + lang + "." + suffix
+	return "Transcribe the following audio recording verbatim in " + code + "." + suffix
 }
 
 // Service handles Gemini transcription via Vertex AI.
 type Service struct {
-	client *genai.Client
-	config *config.Config
+	client   *genai.Client
+	model    string
+	language string
+	logger   *slog.Logger
 }
 
 // NewService creates a new Gemini service and initializes the Vertex AI client.
 // The client uses Application Default Credentials automatically.
-func NewService(ctx context.Context, cfg *config.Config, projectID string) (*Service, error) {
+// If logger is nil, slog.Default() is used.
+func NewService(ctx context.Context, cfg *config.Config, projectID string, logger *slog.Logger) (*Service, error) {
+	if logger == nil {
+		logger = slog.Default()
+	}
+
 	location := cfg.GCPLocation
 	if location == "" {
 		location = DefaultLocation
+	}
+
+	model := cfg.GeminiModel
+	if model == "" {
+		model = DefaultModel
 	}
 
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
@@ -86,8 +93,10 @@ func NewService(ctx context.Context, cfg *config.Config, projectID string) (*Ser
 	}
 
 	return &Service{
-		client: client,
-		config: cfg,
+		client:   client,
+		model:    model,
+		language: cfg.Language,
+		logger:   logger,
 	}, nil
 }
 
@@ -95,23 +104,18 @@ func NewService(ctx context.Context, cfg *config.Config, projectID string) (*Ser
 // mimeType must be one of: audio/wav, audio/mp3, audio/flac, audio/ogg,
 // audio/m4a, audio/aac, audio/webm, audio/pcm.
 func (s *Service) TranscribeAudio(ctx context.Context, audioData []byte, mimeType string) (string, error) {
-	model := s.config.GeminiModel
-	if model == "" {
-		model = DefaultModel
-	}
-
-	if !s.config.Quiet {
-		fmt.Printf("ℹ️  Sending audio to Gemini (model: %s, size: %s)\n",
-			model, formatBytes(len(audioData)))
-	}
+	s.logger.InfoContext(ctx, "sending audio to Gemini",
+		slog.String("model", s.model),
+		slog.String("size", formatBytes(len(audioData))),
+	)
 
 	parts := []*genai.Part{
-		{Text: buildPrompt(s.config.Language)},
+		{Text: buildPrompt(s.language)},
 		{InlineData: &genai.Blob{MIMEType: mimeType, Data: audioData}},
 	}
-	contents := []*genai.Content{{Role: "user", Parts: parts}}
+	contents := []*genai.Content{{Role: roleUser, Parts: parts}}
 
-	resp, err := s.client.Models.GenerateContent(ctx, model, contents, nil)
+	resp, err := s.client.Models.GenerateContent(ctx, s.model, contents, nil)
 	if err != nil {
 		return "", fmt.Errorf("gemini generation failed: %w", err)
 	}
@@ -121,9 +125,9 @@ func (s *Service) TranscribeAudio(ctx context.Context, audioData []byte, mimeTyp
 		return "", fmt.Errorf("gemini returned empty transcript")
 	}
 
-	if !s.config.Quiet {
-		fmt.Printf("ℹ️  Transcription received: %d characters\n", len(transcript))
-	}
+	s.logger.DebugContext(ctx, "transcription received",
+		slog.Int("characters", len(transcript)),
+	)
 
 	return transcript, nil
 }
